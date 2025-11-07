@@ -1,8 +1,9 @@
 <template>
-    <div class="planet-wrapper" @click="goToPlanetDetail" @mouseover="playVideo" @mouseleave="pauseVideo">
-        <video ref="videoPlayer" :style="planetStyle" :src="planet.animationPath" class="planet-video" :autoplay="false" :loop="true" muted
-            playsinline></video>
-    </div>
+  <div class="planet-wrapper" :style="wrapperStyle" @click="goToPlanetDetail" @mouseover="playVideo"
+    @mouseleave="pauseVideo">
+    <video ref="videoPlayer" :style="videoStyle" :src="planet.animationPath" class="planet-video" :autoplay="false"
+      :loop="true" muted playsinline></video>
+  </div>
 </template>
 
 <script setup>
@@ -10,44 +11,58 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 
 const props = defineProps({
-    planet: {
-        type: Object,
-        required: true,
-    },
+  planet: {
+    type: Object,
+    required: true,
+  },
 })
 
 const router = useRouter()
 const videoPlayer = ref(null)
 
-const planetStyle = computed(() => {
-  const size = props.planet.size || 200
+const wrapperStyle = computed(() => {
+  const size = props.planet.size || 200;
+  const margin = props.planet.horizontalMargin || 0
   return {
     width: `${size}px`,
     height: `${size}px`,
+    margin: `0 ${margin}px` 
+  }
+})
+
+const videoStyle = computed(() => {
+  const size = props.planet.size || 200
+  const scale = props.planet.visualScale || 1
+  const videoSize = size * scale
+  return {
+    width: `${videoSize}px`,
+    height: `${videoSize}px`,
   }
 })
 
 function playVideo() {
-    if (videoPlayer.value) {
-        videoPlayer.value.play().catch(error => console.error("Video play failed:", error))
-    }
+  if (videoPlayer.value) {
+    videoPlayer.value.play().catch(error => console.error("Video play failed:", error))
+  }
 }
 
 function pauseVideo() {
-    if (videoPlayer.value) {
-        videoPlayer.value.pause()
-    }
+  if (videoPlayer.value) {
+    videoPlayer.value.pause()
+  }
 }
 
 function goToPlanetDetail() {
-    router.push(`/planet/${props.planet.id}`)
+  router.push(`/planet/${props.planet.id}`)
 }
 </script>
 
 <style scoped>
 .planet-wrapper {
+  position: relative;
+
   border-radius: 50%;
-  
+
   display: flex;
   justify-content: center;
   align-items: center;
@@ -57,22 +72,24 @@ function goToPlanetDetail() {
 }
 
 .planet-wrapper:hover {
-  box-shadow: 0 0 25px 5px rgba(255, 255, 255, 0.3); 
+  box-shadow: 0 0 25px 5px rgba(255, 255, 255, 0.3);
 }
 
 .planet-video {
+  position: absolute;
   width: 108;
   height: 108%;
-  border-radius: 50%; 
+  border-radius: 50%;
   object-fit: cover;
-  
+
   pointer-events: none;
-  
+
   transition: transform 0.4s ease;
 
   transform: scale(1.08);
 }
+
 .planet-wrapper:hover .planet-video {
-    transform: scale(1.188); 
+  transform: scale(1.188);
 }
 </style>
