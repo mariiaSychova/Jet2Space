@@ -72,7 +72,7 @@ function goToPlanetDetail() {
 }
 
 .planet-wrapper:hover {
-  box-shadow: 0 0 25px 5px rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 50px 5px rgba(255, 255, 255, 0.3);
 }
 
 .planet-video {
