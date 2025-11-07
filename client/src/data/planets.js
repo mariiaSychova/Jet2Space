@@ -33,13 +33,15 @@ export const planets = [
     id: 'jupiter',
     name: 'Юпітер',
     animationPath: '/animations/jupiter.webm',
-    size: 220,
+    size: 250,
   },
   {
     id: 'saturn',
     name: 'Сатурн',
     animationPath: '/animations/saturn.webm',
     size: 200,
+    visualScale: 1.6,
+    horizontalMargin: 80
   },
   {
     id: 'uranus',

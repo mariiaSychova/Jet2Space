@@ -42,8 +42,13 @@ const scaleFactor = computed(() => {
 .solar-system-page {
   min-height: 100vh;
   background-color: #1a1a2e;
-  /* background-image: url('/path/to/your/stars-background.png') Додайте фонове зображення з зірками */
-  background-size: cover;
+
+  background-image: url();
+  background-size: cover; 
+  background-position: center center;
+  background-repeat: no-repeat; 
+  background-attachment: fixed;
+
   color: white;
   display: flex;
   flex-direction: column;
