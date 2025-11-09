@@ -39,20 +39,38 @@ const isCardVisible = ref(false)
 
 const planetGap = 40
 const idealContainerWidth = computed(() => {
-  const planetsWidth = planets.reduce((sum, planet) => sum + (planet.size || 200), 0)
+  // Обчислюємо реальну ширину кожної планети з урахуванням visualScale та horizontalMargin
+  // У Planet.vue wrapper має розмір size * Math.max(1, visualScale), тому враховуємо це
+  const planetsWidth = planets.reduce((sum, planet) => {
+    const baseSize = planet.size || 200
+    const visualScale = planet.visualScale || 1
+    // Wrapper в Planet.vue має розмір baseSize * Math.max(1, visualScale)
+    const wrapperSize = baseSize * Math.max(1, visualScale)
+    // horizontalMargin додається з обох боків через margin в containerStyle
+    const marginWidth = (planet.horizontalMargin || 0) * 2
+    // Повна ширина = розмір wrapper + марджини
+    return sum + wrapperSize + marginWidth
+  }, 0)
   const gapsWidth = (planets.length - 1) * planetGap
   return planetsWidth + gapsWidth
 })
 
 const scaleFactor = computed(() => {
-  const containerPadding = 80
+  // Збільшуємо паддінг для кращого відображення (більше простору по краях)
+  const containerPadding = 160 // Збільшено з 120 до 160 для кращого паддінгу
   const availableWidth = windowWidth.value - containerPadding
+
+  if (availableWidth <= 0) {
+    return 0.1 // Мінімальний масштаб навіть для дуже малих екранів
+  }
 
   if (availableWidth >= idealContainerWidth.value) {
     return 1;
   }
   
-  return availableWidth / idealContainerWidth.value
+  // Обчислюємо масштаб так, щоб все помістилося
+  const calculatedScale = availableWidth / idealContainerWidth.value
+  return Math.max(calculatedScale, 0.2) // Мінімум 20% масштаб
 })
 
 function openPlanetCard(planetId) {
@@ -92,17 +110,27 @@ function closePlanetCard() {
   justify-content: center;
   align-items: center;
   width: 100%;
+  overflow-x: hidden; /* Забороняємо горизонтальний скрол */
+  overflow-y: auto;
+  /* Додаємо паддінг, щоб планети не були впритик до країв */
+  padding: 20px 0;
+  box-sizing: border-box;
 }
 
 .planets-container {
   display: flex;
   align-items: center;
+  justify-content: center;
   flex-wrap: nowrap;
   gap: 40px;
-  width: 100%;
-  padding: 40px;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+  padding: 60px 80px; /* Збільшено паддінг по горизонталі з 40px до 80px */
   box-sizing: border-box;
   position: relative;
   z-index: 2;
+  transform-origin: center center;
+  margin: 0 auto;
 }
 </style>

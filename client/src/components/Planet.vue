@@ -1,26 +1,27 @@
 <template>
-  <div 
-    class="planet-wrapper" 
-    :style="wrapperStyle" 
-    @click="goToPlanetDetail" 
-    @mouseover="playVideo"
-    @mouseleave="pauseVideo" 
-    :title="`Клікніть, щоб дізнатися більше про ${planet.name}`"
-    :class="{ 'planet-bouncing': true }"
-    :data-planet-id="planet.id"
-  >
-    <!-- Гало навколо планети -->
+  <div class="planet-container" :data-planet-id="planet.id" :style="containerStyleWithBounce">
+    <!-- Гало навколо планети (рухається разом з планетою) -->
     <div class="planet-halo"></div>
-    <video 
-      ref="videoPlayer" 
-      :style="videoStyle" 
-      :src="planet.animationPath" 
-      class="planet-video" 
-      :autoplay="true"
-      :loop="true" 
-      muted 
-      playsinline
-    ></video>
+    <div 
+      class="planet-wrapper" 
+      :style="wrapperStyle" 
+      @click="goToPlanetDetail" 
+      @mouseover="playVideo"
+      @mouseleave="pauseVideo" 
+      :title="`Клікніть, щоб дізнатися більше про ${planet.name}`"
+      :class="{ 'planet-bouncing': true }"
+    >
+      <video 
+        ref="videoPlayer" 
+        :style="videoStyle" 
+        :src="planet.animationPath" 
+        class="planet-video" 
+        :autoplay="true"
+        :loop="true" 
+        muted 
+        playsinline
+      ></video>
+    </div>
   </div>
 </template>
 
@@ -38,13 +39,27 @@ const emit = defineEmits(['planet-click'])
 
 const videoPlayer = ref(null)
 
+
 const wrapperStyle = computed(() => {
   const size = props.planet.size || 200;
+  const visualScale = props.planet.visualScale || 1;
+  const bounceDuration = props.planet.bounceDuration || 4
+  // Якщо є visualScale, збільшуємо контейнер, щоб відео не обрізалося
+  // Але залишаємо базовий розмір для позиціонування
+  const containerSize = size * Math.max(1, visualScale);
+  // Використовуємо однакові розміри для width і height, щоб гарантувати круглу форму
+  return {
+    width: `${containerSize}px`,
+    height: `${containerSize}px`,
+    '--bounce-duration': `${bounceDuration}s`,
+    '--planet-size': `${size}px`,
+  }
+})
+
+const containerStyleWithBounce = computed(() => {
   const margin = props.planet.horizontalMargin || 0
   const bounceDuration = props.planet.bounceDuration || 4
   return {
-    width: `${size}px`,
-    height: `${size}px`,
     margin: `0 ${margin}px`,
     '--bounce-duration': `${bounceDuration}s`,
   }
@@ -53,8 +68,9 @@ const wrapperStyle = computed(() => {
 const videoStyle = computed(() => {
   const size = props.planet.size || 200
   const scale = props.planet.visualScale || 1
-  const videoSize = size * scale
   const rotationSpeed = props.planet.rotationSpeed || 1
+  // Обчислюємо розмір відео безпосередньо
+  const videoSize = size * scale
   return {
     width: `${videoSize}px`,
     height: `${videoSize}px`,
@@ -114,18 +130,29 @@ watch(() => props.planet, () => {
 </script>
 
 <style scoped>
+.planet-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 .planet-wrapper {
   position: relative;
-  z-index: 3;
+  z-index: 2;
   border-radius: 50%;
+  overflow: hidden; /* Залишаємо hidden, але wrapper тепер достатньо великий для відео */
 
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  display: block;
   cursor: pointer;
 
   transition: box-shadow 0.4s ease;
   animation: planetBounce var(--bounce-duration, 4s) ease-in-out infinite;
+  
+  /* Гарантуємо круглу форму - використовуємо aspect-ratio */
+  box-sizing: border-box;
+  aspect-ratio: 1 / 1;
 }
 
 .planet-wrapper:hover {
@@ -133,185 +160,273 @@ watch(() => props.planet, () => {
   animation-play-state: paused;
 }
 
-/* Гало навколо планети */
+.planet-container:hover .planet-halo {
+  opacity: 0.8;
+  /* При hover гало стає яскравішим, але bounce продовжує працювати через animation */
+}
+
+/* Гало навколо планети - природне космічне світіння */
 .planet-halo {
   position: absolute;
   width: 120%;
   height: 120%;
   border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(150, 200, 255, 0.08) 30%,
-    rgba(100, 150, 255, 0.05) 50%,
-    transparent 70%
-  );
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   pointer-events: none;
-  z-index: -1;
-  animation: haloPulse 3s ease-in-out infinite;
-  filter: blur(8px);
+  z-index: 1;
+  /* Комбінована анімація: bounce (синхронізована з планетою) + pulse */
+  animation: 
+    haloBounce var(--bounce-duration, 4s) ease-in-out infinite,
+    haloPulse 5s ease-in-out infinite;
+  opacity: 0.5;
+  /* Використовуємо box-shadow для природного світіння з об'ємними внутрішніми тінями */
+  box-shadow: 
+    0 0 20px rgba(255, 255, 255, 0.15),
+    0 0 40px rgba(200, 220, 255, 0.1),
+    0 0 60px rgba(150, 180, 255, 0.08),
+    /* Внутрішні тіні для об'ємності */
+    inset 0 0 20px rgba(255, 255, 255, 0.08),
+    inset 0 0 40px rgba(200, 220, 255, 0.06),
+    inset 0 0 60px rgba(150, 180, 255, 0.04),
+    inset 0 0 80px rgba(100, 150, 255, 0.02);
 }
 
-/* Різні кольори гало для різних планет */
-.planet-wrapper[data-planet-id="sun"] .planet-halo {
-  background: radial-gradient(
-    circle,
-    rgba(255, 200, 100, 0.15) 0%,
-    rgba(255, 150, 50, 0.12) 30%,
-    rgba(255, 100, 0, 0.08) 50%,
-    transparent 70%
-  );
-  filter: blur(12px);
+/* Різні кольори світіння для різних планет через box-shadow */
+.planet-container[data-planet-id="sun"] .planet-halo {
+  box-shadow: 
+    0 0 25px rgba(255, 220, 100, 0.3),
+    0 0 50px rgba(255, 180, 60, 0.2),
+    0 0 75px rgba(255, 140, 30, 0.15),
+    0 0 100px rgba(255, 100, 0, 0.1),
+    /* Внутрішні тіні для об'ємного сонячного світіння */
+    inset 0 0 30px rgba(255, 240, 160, 0.25),
+    inset 0 0 60px rgba(255, 220, 120, 0.18),
+    inset 0 0 90px rgba(255, 200, 80, 0.12),
+    inset 0 0 120px rgba(255, 180, 40, 0.08),
+    inset 0 0 150px rgba(255, 160, 20, 0.04);
+  opacity: 0.6;
 }
 
-.planet-wrapper[data-planet-id="mercury"] .planet-halo {
-  background: radial-gradient(
-    circle,
-    rgba(200, 180, 160, 0.12) 0%,
-    rgba(180, 160, 140, 0.08) 40%,
-    transparent 70%
-  );
+.planet-container[data-planet-id="mercury"] .planet-halo {
+  box-shadow: 
+    0 0 20px rgba(220, 200, 180, 0.2),
+    0 0 40px rgba(200, 180, 160, 0.15),
+    0 0 60px rgba(180, 160, 140, 0.1),
+    /* Внутрішні тіні для об'ємного сірого світіння */
+    inset 0 0 25px rgba(200, 180, 160, 0.12),
+    inset 0 0 50px rgba(180, 160, 140, 0.08),
+    inset 0 0 75px rgba(160, 140, 120, 0.06),
+    inset 0 0 100px rgba(140, 120, 100, 0.04);
 }
 
-.planet-wrapper[data-planet-id="venus"] .planet-halo {
-  background: radial-gradient(
-    circle,
-    rgba(255, 220, 180, 0.12) 0%,
-    rgba(255, 200, 150, 0.08) 40%,
-    transparent 70%
-  );
+.planet-container[data-planet-id="venus"] .planet-halo {
+  box-shadow: 
+    0 0 20px rgba(255, 230, 200, 0.22),
+    0 0 40px rgba(255, 210, 170, 0.16),
+    0 0 60px rgba(255, 190, 140, 0.12),
+    /* Внутрішні тіні для об'ємного теплого світіння */
+    inset 0 0 25px rgba(255, 220, 180, 0.15),
+    inset 0 0 50px rgba(255, 200, 160, 0.11),
+    inset 0 0 75px rgba(255, 180, 140, 0.08),
+    inset 0 0 100px rgba(255, 160, 120, 0.05);
 }
 
-.planet-wrapper[data-planet-id="earth"] .planet-halo {
-  background: radial-gradient(
-    circle,
-    rgba(100, 150, 255, 0.12) 0%,
-    rgba(80, 120, 200, 0.08) 40%,
-    transparent 70%
-  );
+.planet-container[data-planet-id="earth"] .planet-halo {
+  box-shadow: 
+    0 0 20px rgba(120, 170, 255, 0.25),
+    0 0 40px rgba(100, 150, 255, 0.18),
+    0 0 60px rgba(80, 130, 230, 0.12),
+    0 0 80px rgba(60, 110, 200, 0.08),
+    /* Внутрішні тіні для об'ємного блакитного світіння */
+    inset 0 0 30px rgba(100, 150, 255, 0.15),
+    inset 0 0 60px rgba(80, 130, 230, 0.11),
+    inset 0 0 90px rgba(60, 110, 200, 0.08),
+    inset 0 0 120px rgba(40, 90, 180, 0.05),
+    inset 0 0 150px rgba(20, 70, 160, 0.03);
 }
 
-.planet-wrapper[data-planet-id="mars"] .planet-halo {
-  background: radial-gradient(
-    circle,
-    rgba(255, 100, 80, 0.12) 0%,
-    rgba(200, 80, 60, 0.08) 40%,
-    transparent 70%
-  );
+.planet-container[data-planet-id="mars"] .planet-halo {
+  box-shadow: 
+    0 0 20px rgba(255, 120, 100, 0.22),
+    0 0 40px rgba(230, 100, 80, 0.16),
+    0 0 60px rgba(200, 80, 60, 0.12),
+    /* Внутрішні тіні для об'ємного червоного світіння */
+    inset 0 0 25px rgba(230, 100, 80, 0.15),
+    inset 0 0 50px rgba(200, 80, 60, 0.11),
+    inset 0 0 75px rgba(180, 60, 40, 0.08),
+    inset 0 0 100px rgba(160, 40, 20, 0.05);
 }
 
-.planet-wrapper[data-planet-id="jupiter"] .planet-halo {
-  background: radial-gradient(
-    circle,
-    rgba(200, 150, 100, 0.12) 0%,
-    rgba(180, 130, 80, 0.08) 40%,
-    transparent 70%
-  );
+.planet-container[data-planet-id="jupiter"] .planet-halo {
+  box-shadow: 
+    0 0 25px rgba(220, 180, 130, 0.22),
+    0 0 50px rgba(200, 160, 110, 0.16),
+    0 0 75px rgba(180, 140, 90, 0.12),
+    /* Внутрішні тіні для об'ємного бежевого світіння */
+    inset 0 0 30px rgba(200, 160, 110, 0.15),
+    inset 0 0 60px rgba(180, 140, 90, 0.11),
+    inset 0 0 90px rgba(160, 120, 70, 0.08),
+    inset 0 0 120px rgba(140, 100, 50, 0.05),
+    inset 0 0 150px rgba(120, 80, 30, 0.03);
 }
 
-.planet-wrapper[data-planet-id="saturn"] .planet-halo {
-  background: radial-gradient(
-    circle,
-    rgba(255, 220, 180, 0.12) 0%,
-    rgba(240, 200, 160, 0.08) 40%,
-    transparent 70%
-  );
+.planet-container[data-planet-id="saturn"] .planet-halo {
+  box-shadow: 
+    0 0 25px rgba(255, 230, 200, 0.22),
+    0 0 50px rgba(240, 210, 180, 0.16),
+    0 0 75px rgba(220, 190, 160, 0.12),
+    /* Внутрішні тіні для об'ємного золотистого світіння */
+    inset 0 0 30px rgba(240, 210, 180, 0.15),
+    inset 0 0 60px rgba(220, 190, 160, 0.11),
+    inset 0 0 90px rgba(200, 170, 140, 0.08),
+    inset 0 0 120px rgba(180, 150, 120, 0.05),
+    inset 0 0 150px rgba(160, 130, 100, 0.03);
 }
 
-.planet-wrapper[data-planet-id="uranus"] .planet-halo {
-  background: radial-gradient(
-    circle,
-    rgba(150, 200, 255, 0.12) 0%,
-    rgba(120, 180, 240, 0.08) 40%,
-    transparent 70%
-  );
+.planet-container[data-planet-id="uranus"] .planet-halo {
+  box-shadow: 
+    0 0 20px rgba(170, 220, 255, 0.22),
+    0 0 40px rgba(150, 200, 245, 0.16),
+    0 0 60px rgba(130, 180, 235, 0.12),
+    /* Внутрішні тіні для об'ємного світло-блакитного світіння */
+    inset 0 0 25px rgba(150, 200, 245, 0.15),
+    inset 0 0 50px rgba(130, 180, 235, 0.11),
+    inset 0 0 75px rgba(110, 160, 225, 0.08),
+    inset 0 0 100px rgba(90, 140, 215, 0.05),
+    inset 0 0 125px rgba(70, 120, 205, 0.03);
 }
 
-.planet-wrapper[data-planet-id="neptune"] .planet-halo {
-  background: radial-gradient(
-    circle,
-    rgba(100, 150, 255, 0.15) 0%,
-    rgba(80, 130, 220, 0.1) 40%,
-    transparent 70%
-  );
+.planet-container[data-planet-id="neptune"] .planet-halo {
+  box-shadow: 
+    0 0 20px rgba(100, 150, 255, 0.26),
+    0 0 40px rgba(80, 130, 235, 0.19),
+    0 0 60px rgba(60, 110, 215, 0.13),
+    0 0 80px rgba(50, 90, 195, 0.08),
+    /* Внутрішні тіні для об'ємного синього світіння */
+    inset 0 0 30px rgba(80, 130, 235, 0.15),
+    inset 0 0 60px rgba(60, 110, 215, 0.11),
+    inset 0 0 90px rgba(50, 90, 195, 0.08),
+    inset 0 0 120px rgba(40, 70, 175, 0.05),
+    inset 0 0 150px rgba(30, 50, 155, 0.03);
 }
 
 .planet-video {
   position: absolute;
-  width: 108%;
-  height: 108%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   border-radius: 50%;
   object-fit: cover;
+  object-position: center;
 
   pointer-events: none;
 
   transition: transform 0.4s ease, filter 0.4s ease;
-
-  transform: scale(1.08);
   filter: brightness(1);
+  
+  /* Гарантуємо круглу форму відео */
+  display: block;
 }
 
 .planet-wrapper:hover .planet-video {
-  transform: scale(1.15);
+  transform: translate(-50%, -50%) scale(1.15);
   filter: brightness(1.2);
+  transform-origin: center center;
 }
 
 /* Анімація підстрибування */
 @keyframes planetBounce {
   0%, 100% {
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
   50% {
-    transform: translateY(-8px);
+    transform: translateY(-8px) scale(1);
   }
 }
 
-/* Анімація пульсації гало */
-@keyframes haloPulse {
+/* Анімація підстрибування гало - синхронізована з планетою */
+@keyframes haloBounce {
   0%, 100% {
-    opacity: 0.6;
-    transform: scale(1);
+    transform: translate(-50%, -50%) translateY(0);
   }
   50% {
-    opacity: 1;
-    transform: scale(1.05);
+    transform: translate(-50%, -50%) translateY(-8px);
+  }
+}
+
+/* Анімація пульсації гало - тонка, природна (тільки opacity та scale) */
+@keyframes haloPulse {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.65;
   }
 }
 
 /* Різні затримки для анімації підстрибування кожної планети */
-.planet-wrapper[data-planet-id="sun"] {
+.planet-container[data-planet-id="sun"] .planet-wrapper {
   animation-delay: 0s;
 }
+.planet-container[data-planet-id="sun"] .planet-halo {
+  animation-delay: 0s, 0s; /* bounce, pulse */
+}
 
-.planet-wrapper[data-planet-id="mercury"] {
+.planet-container[data-planet-id="mercury"] .planet-wrapper {
   animation-delay: 0.3s;
 }
+.planet-container[data-planet-id="mercury"] .planet-halo {
+  animation-delay: 0.3s, 0s; /* bounce, pulse */
+}
 
-.planet-wrapper[data-planet-id="venus"] {
+.planet-container[data-planet-id="venus"] .planet-wrapper {
   animation-delay: 0.6s;
 }
+.planet-container[data-planet-id="venus"] .planet-halo {
+  animation-delay: 0.6s, 0s; /* bounce, pulse */
+}
 
-.planet-wrapper[data-planet-id="earth"] {
+.planet-container[data-planet-id="earth"] .planet-wrapper {
   animation-delay: 0.9s;
 }
+.planet-container[data-planet-id="earth"] .planet-halo {
+  animation-delay: 0.9s, 0s; /* bounce, pulse */
+}
 
-.planet-wrapper[data-planet-id="mars"] {
+.planet-container[data-planet-id="mars"] .planet-wrapper {
   animation-delay: 1.2s;
 }
+.planet-container[data-planet-id="mars"] .planet-halo {
+  animation-delay: 1.2s, 0s; /* bounce, pulse */
+}
 
-.planet-wrapper[data-planet-id="jupiter"] {
+.planet-container[data-planet-id="jupiter"] .planet-wrapper {
   animation-delay: 1.5s;
 }
+.planet-container[data-planet-id="jupiter"] .planet-halo {
+  animation-delay: 1.5s, 0s; /* bounce, pulse */
+}
 
-.planet-wrapper[data-planet-id="saturn"] {
+.planet-container[data-planet-id="saturn"] .planet-wrapper {
   animation-delay: 1.8s;
 }
-
-.planet-wrapper[data-planet-id="uranus"] {
-  animation-delay: 2.1s;
+.planet-container[data-planet-id="saturn"] .planet-halo {
+  animation-delay: 1.8s, 0s; /* bounce, pulse */
 }
 
-.planet-wrapper[data-planet-id="neptune"] {
+.planet-container[data-planet-id="uranus"] .planet-wrapper {
+  animation-delay: 2.1s;
+}
+.planet-container[data-planet-id="uranus"] .planet-halo {
+  animation-delay: 2.1s, 0s; /* bounce, pulse */
+}
+
+.planet-container[data-planet-id="neptune"] .planet-wrapper {
   animation-delay: 2.4s;
+}
+.planet-container[data-planet-id="neptune"] .planet-halo {
+  animation-delay: 2.4s, 0s; /* bounce, pulse */
 }
 </style>
