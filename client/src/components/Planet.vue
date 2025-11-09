@@ -1,6 +1,6 @@
 <template>
   <div class="planet-wrapper" :style="wrapperStyle" @click="goToPlanetDetail" @mouseover="playVideo"
-    @mouseleave="pauseVideo">
+    @mouseleave="pauseVideo" :title="`Клікніть, щоб дізнатися більше про ${planet.name}`">
     <video ref="videoPlayer" :style="videoStyle" :src="planet.animationPath" class="planet-video" :autoplay="false"
       :loop="true" muted playsinline></video>
   </div>
@@ -8,7 +8,6 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
 
 const props = defineProps({
   planet: {
@@ -17,7 +16,8 @@ const props = defineProps({
   },
 })
 
-const router = useRouter()
+const emit = defineEmits(['planet-click'])
+
 const videoPlayer = ref(null)
 
 const wrapperStyle = computed(() => {
@@ -53,7 +53,7 @@ function pauseVideo() {
 }
 
 function goToPlanetDetail() {
-  router.push(`/planet/${props.planet.id}`)
+  emit('planet-click', props.planet.id)
 }
 </script>
 
