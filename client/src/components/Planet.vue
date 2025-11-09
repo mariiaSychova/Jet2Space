@@ -27,6 +27,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { playHover, playClick } from '../utils/sounds'
 
 const props = defineProps({
   planet: {
@@ -114,6 +115,7 @@ function playVideo() {
       const hoverRate = clampPlaybackRate(rotationSpeed * 1.5)
       videoPlayer.value.playbackRate = hoverRate
       videoPlayer.value.play().catch(error => console.error("Video play failed:", error))
+      playHover()
     } catch (error) {
       console.warn("Could not set playback rate on hover:", error)
     }
@@ -134,6 +136,7 @@ function pauseVideo() {
 }
 
 function goToPlanetDetail() {
+  playClick()
   console.log('goToPlanetDetail called for planet:', props.planet.id, props.planet.name)
   emit('planet-click', props.planet.id)
 }

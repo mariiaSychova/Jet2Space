@@ -3,7 +3,7 @@
     <div v-if="isVisible" class="planet-card-overlay" @click.self="closeCard">
       <div class="planet-card" @click.stop>
         <!-- Close button -->
-        <button class="close-button" @click="closeCard" aria-label="Закрити">
+        <button class="close-button" @mouseenter="playHover" @click="() => { playClick(); closeCard(); }" aria-label="Закрити">
           <span>×</span>
         </button>
 
@@ -76,12 +76,14 @@
             <div class="media-buttons">
               <button v-if="planetData.video && planetData.video !== 'https://'" 
                       class="media-button video-button" 
-                      @click="openVideo">
+                      @mouseenter="playHover"
+                      @click="() => { playClick(); openVideo(); }">
                 <span>🎥</span> Відео
               </button>
               <button v-if="planetData.sound && planetData.sound !== '/sounds/...'" 
                       class="media-button sound-button" 
-                      @click="playSound">
+                      @mouseenter="playHover"
+                      @click="() => { playClick(); playSound(); }">
                 <span>🔊</span> Звук
               </button>
             </div>
@@ -95,7 +97,8 @@
             </h3>
             <div class="quiz-preview">
               <p>{{ planetData.quiz.length }} питань готових до проходження!</p>
-              <button class="quiz-button" @click="startQuiz">
+              <button class="quiz-button" @mouseenter="playHover"
+                      @click="() => { playClick(); startQuiz(); }">
                 Почати вікторину →
               </button>
             </div>
@@ -148,6 +151,7 @@
 <script setup>
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { planets } from '../data/planets'
+import { playHover, playClick } from '../utils/sounds'
 
 const props = defineProps({
   planetData: {
