@@ -78,38 +78,63 @@ const videoStyle = computed(() => {
   }
 })
 
+// Обмежуємо playbackRate до підтримуваного браузером діапазону (зазвичай 0.25-4.0)
+function clampPlaybackRate(rate) {
+  const minRate = 0.25  // Мінімальна підтримувана швидкість
+  const maxRate = 4.0   // Максимальна підтримувана швидкість
+  return Math.max(minRate, Math.min(maxRate, rate))
+}
+
 // Встановлюємо швидкість відтворення відео на основі реальної швидкості обертання
 function setupVideoPlaybackRate() {
   if (videoPlayer.value) {
-    const rotationSpeed = props.planet.rotationSpeed || 1
-    // Встановлюємо playbackRate для відображення реальної швидкості обертання
-    videoPlayer.value.playbackRate = rotationSpeed
-    
-    // Автоматично відтворюємо відео з правильною швидкістю
-    videoPlayer.value.play().catch(error => {
-      console.error("Video play failed:", error)
-    })
+    try {
+      const rotationSpeed = props.planet.rotationSpeed || 1
+      // Встановлюємо playbackRate для відображення реальної швидкості обертання
+      // Обмежуємо значення до підтримуваного діапазону
+      const clampedRate = clampPlaybackRate(rotationSpeed)
+      videoPlayer.value.playbackRate = clampedRate
+      
+      // Автоматично відтворюємо відео з правильною швидкістю
+      videoPlayer.value.play().catch(error => {
+        console.error("Video play failed:", error)
+      })
+    } catch (error) {
+      // Якщо не вдається встановити playbackRate, просто ігноруємо помилку
+      console.warn("Could not set playback rate:", error)
+    }
   }
 }
 
 function playVideo() {
   if (videoPlayer.value) {
-    // Збільшуємо швидкість при наведенні для візуального ефекту
-    const rotationSpeed = props.planet.rotationSpeed || 1
-    videoPlayer.value.playbackRate = rotationSpeed * 1.5
-    videoPlayer.value.play().catch(error => console.error("Video play failed:", error))
+    try {
+      // Збільшуємо швидкість при наведенні для візуального ефекту
+      const rotationSpeed = props.planet.rotationSpeed || 1
+      const hoverRate = clampPlaybackRate(rotationSpeed * 1.5)
+      videoPlayer.value.playbackRate = hoverRate
+      videoPlayer.value.play().catch(error => console.error("Video play failed:", error))
+    } catch (error) {
+      console.warn("Could not set playback rate on hover:", error)
+    }
   }
 }
 
 function pauseVideo() {
   // Повертаємо нормальну швидкість обертання при відведенні миші
   if (videoPlayer.value) {
-    const rotationSpeed = props.planet.rotationSpeed || 1
-    videoPlayer.value.playbackRate = rotationSpeed
+    try {
+      const rotationSpeed = props.planet.rotationSpeed || 1
+      const clampedRate = clampPlaybackRate(rotationSpeed)
+      videoPlayer.value.playbackRate = clampedRate
+    } catch (error) {
+      console.warn("Could not set playback rate on pause:", error)
+    }
   }
 }
 
 function goToPlanetDetail() {
+  console.log('goToPlanetDetail called for planet:', props.planet.id, props.planet.name)
   emit('planet-click', props.planet.id)
 }
 

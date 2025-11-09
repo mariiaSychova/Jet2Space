@@ -21,7 +21,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import Planet from '../../src/components/Planet.vue'
 import PlanetCard from '../../src/components/PlanetCard.vue'
 import { planets } from '../data/planets'
@@ -73,16 +73,36 @@ const scaleFactor = computed(() => {
   return Math.max(calculatedScale, 0.2) // Мінімум 20% масштаб
 })
 
-function openPlanetCard(planetId) {
+async function openPlanetCard(planetId) {
+  console.log('openPlanetCard called with planetId:', planetId)
+  
   // Знаходимо дані планети з galaxyConfig
   const planetInfo = galaxyConfig[planetId]
-  if (planetInfo) {
-    selectedPlanetData.value = planetInfo
-    selectedPlanetId.value = planetId
-    isCardVisible.value = true
-    // Блокуємо скрол сторінки під час відкриття картки
-    document.body.style.overflow = 'hidden'
+  console.log('planetInfo found:', planetInfo)
+  console.log('Available keys in galaxyConfig:', Object.keys(galaxyConfig))
+  
+  if (!planetInfo) {
+    console.error('Planet not found in galaxyConfig for ID:', planetId)
+    console.error('Expected one of:', Object.keys(galaxyConfig))
+    return
   }
+  
+  // Встановлюємо дані планети
+  selectedPlanetId.value = planetId
+  selectedPlanetData.value = planetInfo
+  
+  // Чекаємо, поки Vue оновить DOM
+  await nextTick()
+  
+  // Після того, як компонент відрендерився, показуємо картку
+  isCardVisible.value = true
+  
+  // Блокуємо скрол сторінки під час відкриття картки
+  document.body.style.overflow = 'hidden'
+  
+  console.log('Card opened for planet:', planetInfo.name)
+  console.log('isCardVisible:', isCardVisible.value)
+  console.log('selectedPlanetData:', selectedPlanetData.value)
 }
 
 function closePlanetCard() {
