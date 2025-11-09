@@ -60,7 +60,7 @@ function goToPlanetDetail() {
 <style scoped>
 .planet-wrapper {
   position: relative;
-
+  z-index: 3;
   border-radius: 50%;
 
   display: flex;

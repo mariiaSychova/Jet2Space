@@ -82,19 +82,16 @@ function closePlanetCard() {
 <style scoped>
 .solar-system-page {
   min-height: 100vh;
-  background-color: #1a1a2e;
-
-  background-image: url();
-  background-size: cover; 
-  background-position: center center;
-  background-repeat: no-repeat; 
-  background-attachment: fixed;
+  background: transparent;
+  position: relative;
+  z-index: 1;
 
   color: white;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  width: 100%;
 }
 
 .planets-container {
@@ -105,5 +102,7 @@ function closePlanetCard() {
   width: 100%;
   padding: 40px;
   box-sizing: border-box;
+  position: relative;
+  z-index: 2;
 }
 </style>
