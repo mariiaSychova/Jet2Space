@@ -103,6 +103,37 @@
         </div>
         </div>
 
+        <!-- Starry background -->
+        <div class="stars-background">
+          <div 
+            v-for="star in stars" 
+            :key="star.id"
+            class="star"
+            :style="{
+              left: star.x + '%',
+              top: star.y + '%',
+              width: star.size + 'px',
+              height: star.size + 'px',
+              animationDelay: star.delay + 's',
+              animationDuration: star.duration + 's'
+            }"
+          ></div>
+          
+          <!-- Constellation lines -->
+          <svg class="constellation-lines" xmlns="http://www.w3.org/2000/svg">
+            <line 
+              v-for="(line, index) in constellationLines" 
+              :key="index"
+              :x1="line.x1 + '%'"
+              :y1="line.y1 + '%'"
+              :x2="line.x2 + '%'"
+              :y2="line.y2 + '%'"
+              class="constellation-line"
+              :style="{ '--line-delay': index * 0.15 + 's' }"
+            />
+          </svg>
+        </div>
+
         <!-- Decorative elements -->
         <div class="card-decoration">
           <div class="decoration-circle decoration-circle-1"></div>
@@ -139,6 +170,52 @@ const planetAnimationPath = computed(() => {
   if (!props.planetId) return null
   const planet = planets.find(p => p.id === props.planetId)
   return planet?.animationPath || null
+})
+
+// Генерація зірок для фону
+const stars = ref([])
+const constellationLines = ref([
+  // Сузір'я 1 (Великий Віз)
+  { x1: 15, y1: 20, x2: 25, y2: 25 },
+  { x1: 25, y1: 25, x2: 35, y2: 20 },
+  { x1: 35, y1: 20, x2: 45, y2: 30 },
+  { x1: 25, y1: 25, x2: 30, y2: 35 },
+  // Сузір'я 2 (Оріон)
+  { x1: 60, y1: 15, x2: 70, y2: 20 },
+  { x1: 70, y1: 20, x2: 75, y2: 30 },
+  { x1: 65, y1: 25, x2: 72, y2: 35 },
+  // Сузір'я 3 (Кассіопея)
+  { x1: 20, y1: 60, x2: 30, y2: 65 },
+  { x1: 30, y1: 65, x2: 40, y2: 60 },
+  { x1: 40, y1: 60, x2: 35, y2: 70 },
+  { x1: 30, y1: 65, x2: 25, y2: 75 },
+])
+
+// Функція для генерації випадкової зірки
+function generateStar(id) {
+  return {
+    id: id,
+    x: Math.random() * 95 + 2.5, // 2.5-97.5% щоб не виходили за межі
+    y: Math.random() * 95 + 2.5,
+    size: Math.random() * 2.5 + 0.8, // 0.8-3.3px
+    delay: Math.random() * 4, // різні затримки для різноманітності
+    duration: Math.random() * 2.5 + 1.8, // 1.8-4.3s - різні швидкості блимання
+  }
+}
+
+// Генеруємо зірки при монтуванні або коли картка стає видимою
+watch(() => props.isVisible, (isVisible) => {
+  if (isVisible && stars.value.length === 0) {
+    // Генеруємо ~100 зірок для красивого та живого фону
+    stars.value = Array.from({ length: 100 }, (_, i) => generateStar(i))
+  }
+})
+
+// Генеруємо зірки при монтуванні
+onMounted(() => {
+  if (props.isVisible) {
+    stars.value = Array.from({ length: 100 }, (_, i) => generateStar(i))
+  }
 })
 
 const emit = defineEmits(['close'])
@@ -236,7 +313,7 @@ onUnmounted(() => {
 
 .planet-card {
   position: relative;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  background: linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 30%, #16213e 60%, #0f3460 100%);
   border-radius: 30px;
   padding: 40px;
   max-width: 600px;
@@ -252,15 +329,115 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
+/* Starry background */
+.stars-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  border-radius: 30px;
+  overflow: hidden;
+}
+
+.star {
+  position: absolute;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 
+    0 0 2px rgba(255, 255, 255, 0.9),
+    0 0 4px rgba(255, 255, 255, 0.7),
+    0 0 6px rgba(150, 180, 255, 0.5),
+    0 0 8px rgba(100, 150, 255, 0.3);
+  animation: twinkleStar infinite ease-in-out;
+  opacity: 0.4;
+  transform-origin: center;
+}
+
+/* Більші зірки мають інтенсивніше світіння */
+.star:nth-child(4n) {
+  box-shadow: 
+    0 0 3px rgba(255, 255, 255, 1),
+    0 0 6px rgba(255, 255, 255, 0.8),
+    0 0 9px rgba(150, 180, 255, 0.6),
+    0 0 12px rgba(100, 150, 255, 0.4);
+}
+
+/* Деякі зірки мають тепліший відтінок */
+.star:nth-child(7n) {
+  box-shadow: 
+    0 0 2px rgba(255, 220, 150, 0.9),
+    0 0 4px rgba(255, 200, 100, 0.7),
+    0 0 6px rgba(255, 180, 80, 0.5);
+  background: rgba(255, 240, 200, 0.9);
+}
+
+/* Констеляції */
+.constellation-lines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.constellation-line {
+  stroke: rgba(150, 180, 255, 0.5);
+  stroke-width: 1;
+  stroke-dasharray: 3, 3;
+  fill: none;
+  animation: drawConstellation 3s ease-in-out forwards;
+  animation-delay: var(--line-delay, 0s);
+  opacity: 0;
+  filter: drop-shadow(0 0 2px rgba(150, 180, 255, 0.3));
+}
+
+@keyframes drawConstellation {
+  0% {
+    stroke-dashoffset: 20;
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0.35;
+  }
+}
+
+@keyframes twinkleStar {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scale(0.7);
+  }
+  25% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.3);
+  }
+  75% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
 .planet-card-content-wrapper {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  /* Додаємо відступи, щоб контент не торкався країв */
   padding-top: 10px;
   padding-bottom: 10px;
-  /* Відступ для скролбара */
   padding-right: 5px;
   margin-right: -5px;
 }
@@ -301,6 +478,7 @@ onUnmounted(() => {
   justify-content: center;
   transition: all 0.3s ease;
   z-index: 10;
+  backdrop-filter: blur(5px);
 }
 
 .close-button:hover {
@@ -313,6 +491,7 @@ onUnmounted(() => {
   text-align: center;
   margin-bottom: 30px;
   position: relative;
+  z-index: 2;
 }
 
 .planet-name {
@@ -352,6 +531,8 @@ onUnmounted(() => {
   margin: 30px 0;
   height: 200px;
   flex-shrink: 0;
+  position: relative;
+  z-index: 2;
 }
 
 .planet-video {
@@ -396,6 +577,8 @@ onUnmounted(() => {
 .planet-card-content {
   color: #e0e0e0;
   line-height: 1.8;
+  position: relative;
+  z-index: 2;
 }
 
 .description-section,
