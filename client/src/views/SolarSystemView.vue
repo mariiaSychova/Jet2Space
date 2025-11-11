@@ -49,16 +49,18 @@ const selectedPlanetId = ref(null)
 const isCardVisible = ref(false)
 const isPageLoaded = ref(false)
 
-const planetGap = 40
+const planetGap = 60
 const idealContainerWidth = computed(() => {
-  // Обчислюємо реальну ширину кожної планети з урахуванням visualScale та horizontalMargin
-  // У Planet.vue wrapper має розмір size * Math.max(1, visualScale), тому враховуємо це
+  // Обчислюємо реальну ширину кожної планети з урахуванням visualScale та saturnMultiplier
+  // У Planet.vue wrapper має розмір size * Math.max(1, visualScale) * saturnMultiplier
   const planetsWidth = planets.reduce((sum, planet) => {
     const baseSize = planet.size || 200
     const visualScale = planet.visualScale || 1
-    // Wrapper в Planet.vue має розмір baseSize * Math.max(1, visualScale)
-    const wrapperSize = baseSize * Math.max(1, visualScale)
-    // horizontalMargin додається з обох боків через margin в containerStyle
+    // Для Сатурна враховуємо множник для кілець (той самий, що в Planet.vue)
+    const saturnMultiplier = planet.id === 'saturn' ? 1.15 : 1
+    // Wrapper в Planet.vue має розмір baseSize * Math.max(1, visualScale) * saturnMultiplier
+    const wrapperSize = baseSize * Math.max(1, visualScale) * saturnMultiplier
+    // horizontalMargin додається з обох боків через margin в containerStyle (якщо є)
     const marginWidth = (planet.horizontalMargin || 0) * 2
     // Повна ширина = розмір wrapper + марджини
     return sum + wrapperSize + marginWidth
@@ -173,7 +175,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   flex-wrap: nowrap;
-  gap: 40px;
+  gap: 60px;
   width: fit-content;
   max-width: 100%;
   min-width: 0;

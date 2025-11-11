@@ -3,7 +3,7 @@ export const planets = [
     id: 'sun',
     name: 'Сонце',
     animationPath: '/animations/sun.webm',
-    size: 250,
+    size: 350,
     rotationSpeed: 0.04, // ~25 днів на оберт (масштабовано відносно Землі)
     bounceDuration: 4, // секунди для одного циклу підстрибування
   },
@@ -43,7 +43,7 @@ export const planets = [
     id: 'jupiter',
     name: 'Юпітер',
     animationPath: '/animations/jupiter.webm',
-    size: 250,
+    size: 240,
     rotationSpeed: 2.44, // ~0.41 дні на оберт (швидко обертається)
     bounceDuration: 5,
   },
@@ -52,8 +52,7 @@ export const planets = [
     name: 'Сатурн',
     animationPath: '/animations/saturn.webm',
     size: 200,
-    visualScale: 1.6,
-    horizontalMargin: 80,
+    visualScale: 1.1,
     rotationSpeed: 2.22, // ~0.45 дні на оберт
     bounceDuration: 5.2,
   },

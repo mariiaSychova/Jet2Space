@@ -71,12 +71,15 @@ const wrapperStyle = computed(() => {
   const size = props.planet.size || 200;
   const visualScale = props.planet.visualScale || 1;
   const bounceDuration = props.planet.bounceDuration || 4
-  const containerSize = size * Math.max(1, visualScale);
+  // Для Сатурна збільшуємо розмір wrapper, щоб вмістити кільця (менший множник для компактності)
+  const saturnMultiplier = props.planet.id === 'saturn' ? 1.15 : 1;
+  const containerSize = size * Math.max(1, visualScale) * saturnMultiplier;
   return {
     width: `${containerSize}px`,
     height: `${containerSize}px`,
     '--bounce-duration': `${bounceDuration}s`,
     '--planet-size': `${size}px`,
+    '--visual-scale': `${visualScale}`,
   }
 })
 
@@ -92,7 +95,9 @@ const containerStyleWithBounce = computed(() => {
 const videoStyle = computed(() => {
   const size = props.planet.size || 200
   const scale = props.planet.visualScale || 1
-  const videoSize = size * scale
+  // Для Сатурна збільшуємо розмір відео, щоб вмістити кільця, але зберігаємо пропорції
+  const saturnMultiplier = props.planet.id === 'saturn' ? 1.15 : 1
+  const videoSize = size * scale * saturnMultiplier
   return {
     width: `${videoSize}px`,
     height: `${videoSize}px`,
@@ -249,6 +254,11 @@ watch(() => props.isCardOpen, (isOpen) => {
   flex-shrink: 0;
 }
 
+/* Для Сатурна дозволяємо вихід за межі контейнера для кілець */
+.planet-container[data-planet-id="saturn"] {
+  overflow: visible;
+}
+
 .planet-wrapper {
   position: relative;
   z-index: 2;
@@ -266,6 +276,16 @@ watch(() => props.isCardOpen, (isOpen) => {
   /* Спрощений box-shadow */
   box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Для Сатурна дозволяємо видимість кілець, які виходять за межі */
+.planet-container[data-planet-id="saturn"] .planet-wrapper {
+  /* Дозволяємо вихід за межі для кілець */
+  overflow: visible;
+  /* Зменшуємо contain для дозволу виходу за межі */
+  contain: style;
+  /* Зберігаємо круглу форму wrapper */
+  border-radius: 50%;
 }
 
 /* Призупиняємо анімацію коли картка відкрита */
@@ -289,7 +309,7 @@ watch(() => props.isCardOpen, (isOpen) => {
   /* При hover гало стає яскравішим, але bounce продовжує працювати через animation */
 }
 
-/* Гало навколо планети - оптимізоване світіння */
+/* Гало навколо планети - оптимізоване світіння з внутрішньою та зовнішньою тінню */
 .planet-halo {
   position: absolute;
   width: 120%;
@@ -308,10 +328,22 @@ watch(() => props.isCardOpen, (isOpen) => {
   /* Оптимізація продуктивності */
   will-change: transform, opacity;
   contain: layout style paint;
-  /* Спрощений box-shadow - менше шарів для кращої продуктивності */
+  /* Прозорий фон з градієнтом для плавного переходу */
+  background: radial-gradient(
+    circle,
+    transparent 40%,
+    rgba(150, 180, 255, 0.05) 50%,
+    rgba(100, 150, 255, 0.1) 60%,
+    transparent 100%
+  );
+  /* Комбіновані внутрішні та зовнішні тіні для плавного переходу */
   box-shadow: 
-    0 0 30px rgba(150, 180, 255, 0.2),
-    0 0 60px rgba(100, 150, 255, 0.1);
+    /* Зовнішні тіні */
+    0 0 20px rgba(150, 180, 255, 0.15),
+    0 0 40px rgba(100, 150, 255, 0.1),
+    /* Внутрішні тіні для плавного переходу */
+    inset 0 0 30px rgba(150, 180, 255, 0.1),
+    inset 0 0 60px rgba(100, 150, 255, 0.05);
 }
 
 /* Призупиняємо анімацію гало коли картка відкрита */
@@ -319,42 +351,127 @@ watch(() => props.isCardOpen, (isOpen) => {
   animation-play-state: paused;
 }
 
-/* Різні кольори світіння для різних планет - спрощені */
+/* Різні кольори світіння для різних планет з внутрішніми та зовнішніми тінями */
 .planet-container[data-planet-id="sun"] .planet-halo {
-  box-shadow: 0 0 50px rgba(255, 200, 100, 0.4), 0 0 100px rgba(255, 150, 50, 0.2);
+  background: radial-gradient(
+    circle,
+    transparent 40%,
+    rgba(255, 200, 100, 0.08) 50%,
+    rgba(255, 150, 50, 0.15) 60%,
+    transparent 100%
+  );
+  box-shadow: 
+    /* Зовнішні тіні */
+    0 0 30px rgba(255, 200, 100, 0.3),
+    0 0 60px rgba(255, 150, 50, 0.2),
+    /* Внутрішні тіні */
+    inset 0 0 40px rgba(255, 200, 100, 0.2),
+    inset 0 0 80px rgba(255, 150, 50, 0.1);
   opacity: 0.6;
 }
 
 .planet-container[data-planet-id="mercury"] .planet-halo {
-  box-shadow: 0 0 40px rgba(200, 180, 160, 0.25);
+  background: radial-gradient(
+    circle,
+    transparent 40%,
+    rgba(200, 180, 160, 0.06) 50%,
+    rgba(200, 180, 160, 0.12) 60%,
+    transparent 100%
+  );
+  box-shadow: 
+    0 0 25px rgba(200, 180, 160, 0.2),
+    inset 0 0 35px rgba(200, 180, 160, 0.15);
 }
 
 .planet-container[data-planet-id="venus"] .planet-halo {
-  box-shadow: 0 0 40px rgba(255, 210, 170, 0.3);
+  background: radial-gradient(
+    circle,
+    transparent 40%,
+    rgba(255, 210, 170, 0.07) 50%,
+    rgba(255, 210, 170, 0.14) 60%,
+    transparent 100%
+  );
+  box-shadow: 
+    0 0 25px rgba(255, 210, 170, 0.25),
+    inset 0 0 35px rgba(255, 210, 170, 0.2);
 }
 
 .planet-container[data-planet-id="earth"] .planet-halo {
-  box-shadow: 0 0 50px rgba(100, 150, 255, 0.3);
+  background: radial-gradient(
+    circle,
+    transparent 40%,
+    rgba(100, 150, 255, 0.07) 50%,
+    rgba(100, 150, 255, 0.14) 60%,
+    transparent 100%
+  );
+  box-shadow: 
+    0 0 30px rgba(100, 150, 255, 0.25),
+    inset 0 0 40px rgba(100, 150, 255, 0.2);
 }
 
 .planet-container[data-planet-id="mars"] .planet-halo {
-  box-shadow: 0 0 40px rgba(230, 100, 80, 0.3);
+  background: radial-gradient(
+    circle,
+    transparent 40%,
+    rgba(230, 100, 80, 0.07) 50%,
+    rgba(230, 100, 80, 0.14) 60%,
+    transparent 100%
+  );
+  box-shadow: 
+    0 0 25px rgba(230, 100, 80, 0.25),
+    inset 0 0 35px rgba(230, 100, 80, 0.2);
 }
 
 .planet-container[data-planet-id="jupiter"] .planet-halo {
-  box-shadow: 0 0 50px rgba(200, 160, 110, 0.3);
+  background: radial-gradient(
+    circle,
+    transparent 40%,
+    rgba(200, 160, 110, 0.07) 50%,
+    rgba(200, 160, 110, 0.14) 60%,
+    transparent 100%
+  );
+  box-shadow: 
+    0 0 30px rgba(200, 160, 110, 0.25),
+    inset 0 0 40px rgba(200, 160, 110, 0.2);
 }
 
 .planet-container[data-planet-id="saturn"] .planet-halo {
-  box-shadow: 0 0 50px rgba(240, 210, 180, 0.3);
+  background: radial-gradient(
+    circle,
+    transparent 40%,
+    rgba(240, 210, 180, 0.07) 50%,
+    rgba(240, 210, 180, 0.14) 60%,
+    transparent 100%
+  );
+  box-shadow: 
+    0 0 30px rgba(240, 210, 180, 0.25),
+    inset 0 0 40px rgba(240, 210, 180, 0.2);
 }
 
 .planet-container[data-planet-id="uranus"] .planet-halo {
-  box-shadow: 0 0 40px rgba(150, 200, 245, 0.3);
+  background: radial-gradient(
+    circle,
+    transparent 40%,
+    rgba(150, 200, 245, 0.07) 50%,
+    rgba(150, 200, 245, 0.14) 60%,
+    transparent 100%
+  );
+  box-shadow: 
+    0 0 25px rgba(150, 200, 245, 0.25),
+    inset 0 0 35px rgba(150, 200, 245, 0.2);
 }
 
 .planet-container[data-planet-id="neptune"] .planet-halo {
-  box-shadow: 0 0 50px rgba(80, 130, 235, 0.3);
+  background: radial-gradient(
+    circle,
+    transparent 40%,
+    rgba(80, 130, 235, 0.07) 50%,
+    rgba(80, 130, 235, 0.14) 60%,
+    transparent 100%
+  );
+  box-shadow: 
+    0 0 30px rgba(80, 130, 235, 0.25),
+    inset 0 0 40px rgba(80, 130, 235, 0.2);
 }
 
 .planet-placeholder {
@@ -383,6 +500,14 @@ watch(() => props.isCardOpen, (isOpen) => {
   will-change: transform;
   /* Спрощена transition */
   transition: transform 0.3s ease;
+}
+
+/* Для Сатурна дозволяємо відео виходити за межі wrapper для кілець */
+.planet-container[data-planet-id="saturn"] .planet-video {
+  /* Використовуємо contain, щоб показати кільця повністю зі збереженням пропорцій */
+  object-fit: contain;
+  /* Видаляємо border-radius, щоб кільця не обрізалися */
+  border-radius: 0;
 }
 
 .planet-wrapper:hover .planet-video {
