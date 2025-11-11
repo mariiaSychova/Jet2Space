@@ -9,7 +9,7 @@ export const galaxyConfig = {
     ],
     image: "/images/...",
     sound: "/sounds/...",
-    video: "https://", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/watch?v=6tmbeLTHC_0", // Сонце - NASA відео
     quiz: [
       {
         question: "Question 1",
@@ -31,7 +31,7 @@ export const galaxyConfig = {
     ],
     image: "/images/...",
     sound: "/sounds/...",
-    video: "https://", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/watch?v=0KBjnNuhRHs", // Меркурій
     quiz: [
       {
         question: "Question 1",
@@ -54,7 +54,7 @@ export const galaxyConfig = {
     ],
     image: "/images/...",
     sound: "/sounds/...",
-    video: "https://", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/watch?v=B4XzLDM3Py8", // Венера
     quiz: [
       {
         question: "Question 1",
@@ -77,7 +77,7 @@ export const galaxyConfig = {
     ],
     image: "/images/...",
     sound: "/sounds/...",
-    video: "https://", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/watch?v=dhRUe-gz690", // Земля
     quiz: [
       {
         question: "Question 1",
@@ -99,7 +99,7 @@ export const galaxyConfig = {
     ],
     image: "/images/...",
     sound: "/sounds/...",
-    video: "https://", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/watch?v=D8pnmwOXhoY", // Марс
     quiz: [
       {
         question: "Question 1",
@@ -121,7 +121,7 @@ export const galaxyConfig = {
     ],
     image: "/images/...",
     sound: "/sounds/...",
-    video: "https://", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/watch?v=PtkqwslbLY8", // Юпітер
     quiz: [
       {
         question: "Question 1",
@@ -136,14 +136,14 @@ export const galaxyConfig = {
   },
   saturn: {
     name: "Сатурн",
-    description: `Сатурн — газовий гігант, відомий своїми величними кільцями, що складаються з льодових і кам’яних частинок. \
+    description: `Сатурн — газовий гігант, відомий своїми величними кільцями, що складаються з льодових і кам'яних частинок. \
     Планета має понад 80 супутників, включно з Титаном, який має густу атмосферу. Швидкість обертання Сатурна є найвищою серед планет Сонячної системи.`,
     facts: [
       "Хоча Сатурн виглядає як «пухка» планета через свої кільця, він такий легкий, що якби його помістити у величезну водойму, він би плавав.",
     ],
     image: "/images/...",
     sound: "/sounds/...",
-    video: "https://", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/watch?v=epZdZaEQhS0", // Сатурн
     quiz: [
       {
         question: "Question 1",
@@ -166,7 +166,7 @@ export const galaxyConfig = {
     ],
     image: "/images/...",
     sound: "/sounds/...",
-    video: "https://", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/watch?v=m4NXbFOQOGQ", // Уран
     quiz: [
       {
         question: "Question 1",
@@ -189,7 +189,7 @@ export const galaxyConfig = {
     ],
     image: "/images/...",
     sound: "/sounds/...",
-    video: "https://", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/watch?v=N6n-9l1eV2Q", // Нептун
     quiz: [
       {
         question: "Question 1",

@@ -20,17 +20,27 @@
           </div>
         </div>
 
-        <!-- Planet Image/Animation -->
+        <!-- Planet Video -->
         <div class="planet-image-container">
+          <div v-if="isYouTubeVideo" class="planet-video-wrapper">
+            <iframe 
+              :src="youtubeEmbedUrl"
+              class="planet-video-iframe"
+              frameborder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowfullscreen
+            ></iframe>
+          </div>
           <video 
-            v-if="planetAnimationPath"
+            v-else-if="planetVideoUrl"
             ref="planetVideo"
-            :src="planetAnimationPath"
+            :src="planetVideoUrl"
             class="planet-video"
             autoplay
             loop
             muted
             playsinline
+            controls
           ></video>
           <img 
             v-else-if="planetData.image && planetData.image !== '/images/...'" 
@@ -147,7 +157,6 @@
 
 <script setup>
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
-import { planets } from '../data/planets'
 
 const props = defineProps({
   planetData: {
@@ -166,10 +175,53 @@ const props = defineProps({
 
 const planetVideo = ref(null)
 
-const planetAnimationPath = computed(() => {
-  if (!props.planetId) return null
-  const planet = planets.find(p => p.id === props.planetId)
-  return planet?.animationPath || null
+// Функція для визначення, чи це YouTube посилання
+function isYouTubeLink(url) {
+  if (!url) return false
+  const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)/
+  return youtubeRegex.test(url)
+}
+
+// Функція для конвертації YouTube посилання в embed формат
+function convertToYouTubeEmbed(url) {
+  if (!url) return null
+  
+  // Вже embed посилання
+  if (url.includes('youtube.com/embed/')) {
+    return url
+  }
+  
+  // Коротке посилання youtu.be
+  const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/)
+  if (shortMatch) {
+    return `https://www.youtube.com/embed/${shortMatch[1]}?autoplay=1&loop=1&playlist=${shortMatch[1]}&mute=1`
+  }
+  
+  // Звичайне YouTube посилання
+  const regularMatch = url.match(/(?:youtube\.com\/watch\?v=|youtube\.com\/v\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]+)/)
+  if (regularMatch) {
+    return `https://www.youtube.com/embed/${regularMatch[1]}?autoplay=1&loop=1&playlist=${regularMatch[1]}&mute=1`
+  }
+  
+  return null
+}
+
+const planetVideoUrl = computed(() => {
+  if (props.planetData.video && props.planetData.video !== 'https://' && !isYouTubeLink(props.planetData.video)) {
+    return props.planetData.video
+  }
+  return null
+})
+
+const isYouTubeVideo = computed(() => {
+  return props.planetData.video && props.planetData.video !== 'https://' && isYouTubeLink(props.planetData.video)
+})
+
+const youtubeEmbedUrl = computed(() => {
+  if (isYouTubeVideo.value) {
+    return convertToYouTubeEmbed(props.planetData.video)
+  }
+  return null
 })
 
 // Генерація зірок для фону
@@ -257,24 +309,26 @@ function startQuiz() {
 watch(() => props.isVisible, (isVisible) => {
   if (isVisible) {
     document.addEventListener('keydown', handleEscape)
-    // Автоматично відтворюємо відео при відкритті картки
-    setTimeout(() => {
-      if (planetVideo.value && planetAnimationPath.value) {
-        planetVideo.value.play().catch(error => console.error('Video play failed:', error))
-      }
-    }, 100)
+    // Автоматично відтворюємо відео при відкритті картки (тільки для звичайних video, не YouTube)
+    if (!isYouTubeVideo.value) {
+      setTimeout(() => {
+        if (planetVideo.value && planetVideoUrl.value) {
+          planetVideo.value.play().catch(error => console.error('Video play failed:', error))
+        }
+      }, 100)
+    }
   } else {
     document.removeEventListener('keydown', handleEscape)
-    // Зупиняємо відео при закритті картки
-    if (planetVideo.value) {
+    // Зупиняємо відео при закритті картки (тільки для звичайних video, не YouTube)
+    if (planetVideo.value && !isYouTubeVideo.value) {
       planetVideo.value.pause()
     }
   }
 })
 
-// Також відтворюємо відео при зміні planetId
-watch(() => props.planetId, () => {
-  if (props.isVisible && planetVideo.value && planetAnimationPath.value) {
+// Також відтворюємо відео при зміні planetData (тільки для звичайних video, не YouTube)
+watch(() => props.planetData.video, () => {
+  if (props.isVisible && !isYouTubeVideo.value && planetVideo.value && planetVideoUrl.value) {
     setTimeout(() => {
       planetVideo.value?.play().catch(error => console.error('Video play failed:', error))
     }, 100)
@@ -395,7 +449,7 @@ onUnmounted(() => {
   animation: drawConstellation 3s ease-in-out forwards;
   animation-delay: var(--line-delay, 0s);
   opacity: 0;
-  filter: drop-shadow(0 0 2px rgba(150, 180, 255, 0.3));
+  filter: drop-shadow(0 0 2px rgba(150, 180, 255, 0.3));    
 }
 
 @keyframes drawConstellation {
@@ -529,22 +583,45 @@ onUnmounted(() => {
   justify-content: center;
   align-items: center;
   margin: 30px 0;
-  height: 200px;
+  min-height: 300px;
   flex-shrink: 0;
   position: relative;
   z-index: 2;
 }
 
 .planet-video {
-  width: 200px;
-  height: 200px;
-  border-radius: 50%;
-  object-fit: cover;
+  width: 100%;
+  max-width: 560px;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border-radius: 15px;
+  object-fit: contain;
   box-shadow: 
     0 10px 30px rgba(0, 0, 0, 0.5),
     0 0 40px rgba(100, 150, 255, 0.4);
-  animation: float 3s ease-in-out infinite;
   background: transparent;
+}
+
+.planet-video-wrapper {
+  width: 100%;
+  max-width: 560px;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border-radius: 15px;
+  overflow: hidden;
+  box-shadow: 
+    0 10px 30px rgba(0, 0, 0, 0.5),
+    0 0 40px rgba(100, 150, 255, 0.4);
+  position: relative;
+}
+
+.planet-video-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
 .planet-image {
