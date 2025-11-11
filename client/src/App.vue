@@ -1,5 +1,5 @@
 <template>
-  <StarryBackground @stars-ready="onStarsReady" />
+  <StarryBackground @stars-ready="onStarsReady" @click="startAudio" />
   <div class="app-content">
     <RouterView />
   </div>
@@ -18,6 +18,11 @@ function onStarsReady() {
 
 // Надаємо starsReady через provide для доступу в дочірніх компонентах
 provide('starsReady', starsReady)
+import { playBackground } from './utils/sounds.js'
+
+function startAudio() {
+  playBackground()    //фонова музика запускається після першого кліку будь-де
+}
 </script>
 
 <style>

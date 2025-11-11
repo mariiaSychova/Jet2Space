@@ -3,7 +3,7 @@
     <div v-if="isVisible" class="planet-card-overlay" @click.self="closeCard">
       <div class="planet-card" @click.stop>
         <!-- Close button -->
-        <button class="close-button" @click="closeCard" aria-label="Закрити">
+        <button class="close-button" @mouseenter="playHover" @click="() => { playClick(); closeCard(); }" aria-label="Закрити">
           <span>×</span>
         </button>
 
@@ -98,7 +98,8 @@
             <div class="media-buttons" v-if="planetData.sound && planetData.sound !== '/sounds/...'">
               <button 
                 class="media-button sound-button" 
-                @click="playSound">
+                @mouseenter="playHover"
+                @click="() => { playClick(); playSound(); }">
                 <span>🔊</span> Звук
               </button>
             </div>
@@ -123,7 +124,8 @@
                     'incorrect': isAnswered && selectedAnswer === key && selectedAnswer !== currentQuestion.answer,
                     'disabled': isAnswered
                   }"
-                  @click="selectAnswer(key)"
+                  @mouseenter="playHover"
+                  @click="() => { playClick(); selectAnswer(key); }"
                   :disabled="isAnswered"
                 >
                   <span class="option-label">{{ key.toUpperCase() }}.</span>
@@ -193,6 +195,7 @@
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { getCachedStars, getCachedAnimatedStars } from '../utils/starBackground.js'
 import { getRandomQuestionFromQuiz, validateQuizResponse, updateUserProgress } from '../utils/logic.js'
+import { playHover, playClick } from '../utils/sounds'
 
 const props = defineProps({
   planetData: {

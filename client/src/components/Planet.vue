@@ -21,7 +21,6 @@
       <div 
         v-if="!shouldLoadVideo" 
         class="planet-static"
-        :style="planetStaticStyle"
       ></div>
       <!-- Відео завантажується тільки при hover -->
       <video 
@@ -44,6 +43,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { playHover, playClick } from '../utils/sounds'
 
 const props = defineProps({
   planet: {
@@ -148,7 +148,8 @@ function handleMouseEnter() {
       const rotationSpeed = props.planet.rotationSpeed || 1
       const hoverRate = clampPlaybackRate(rotationSpeed * 1.5)
       videoPlayer.value.playbackRate = hoverRate
-      videoPlayer.value.play().catch(() => {})
+      videoPlayer.value.play().catch(error => console.error("Video play failed:", error))
+      playHover()
     } catch (error) {
       // Ігноруємо помилки
     }
@@ -170,6 +171,7 @@ function handleMouseLeave() {
 }
 
 function goToPlanetDetail() {
+  playClick()
   emit('planet-click', props.planet.id)
 }
 
