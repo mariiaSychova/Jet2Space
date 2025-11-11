@@ -252,6 +252,7 @@ watch(() => props.isCardOpen, (isOpen) => {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  z-index: 10; /* Планети повинні бути поверх сузір'їв (z-index: 1) */
 }
 
 /* Для Сатурна дозволяємо вихід за межі контейнера для кілець */
