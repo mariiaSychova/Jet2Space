@@ -81,15 +81,24 @@
               <span class="icon">🎬</span>
               Медіа
             </h3>
-            <div class="media-buttons">
-              <button v-if="planetData.video && planetData.video !== 'https://'" 
-                      class="media-button video-button" 
-                      @click="openVideo">
-                <span>🎥</span> Відео
-              </button>
-              <button v-if="planetData.sound && planetData.sound !== '/sounds/...'" 
-                      class="media-button sound-button" 
-                      @click="playSound">
+            <!-- Photo Gallery -->
+            <div class="media-photo-container">
+              <img 
+                v-if="hasImage"
+                :src="planetData.image" 
+                :alt="planetData.name"
+                class="media-photo"
+              />
+              <div v-else class="media-photo-placeholder">
+                <div class="placeholder-icon">📷</div>
+                <p class="placeholder-text">Фото планеті</p>
+              </div>
+            </div>
+            <!-- Media Buttons -->
+            <div class="media-buttons" v-if="planetData.sound && planetData.sound !== '/sounds/...'">
+              <button 
+                class="media-button sound-button" 
+                @click="playSound">
                 <span>🔊</span> Звук
               </button>
             </div>
@@ -101,11 +110,34 @@
               <span class="icon">🧩</span>
               Вікторина
             </h3>
-            <div class="quiz-preview">
-              <p>{{ planetData.quiz.length }} питань готових до проходження!</p>
-              <button class="quiz-button" @click="startQuiz">
-                Почати вікторину →
-              </button>
+            <div v-if="currentQuestion" class="quiz-content">
+              <p class="quiz-question">{{ currentQuestion.question }}</p>
+              <div class="quiz-options">
+                <button
+                  v-for="(option, key) in currentQuestion.options"
+                  :key="key"
+                  class="quiz-option"
+                  :class="{
+                    'selected': selectedAnswer === key,
+                    'correct': isAnswered && key === currentQuestion.answer,
+                    'incorrect': isAnswered && selectedAnswer === key && selectedAnswer !== currentQuestion.answer,
+                    'disabled': isAnswered
+                  }"
+                  @click="selectAnswer(key)"
+                  :disabled="isAnswered"
+                >
+                  <span class="option-label">{{ key.toUpperCase() }}.</span>
+                  <span class="option-text">{{ option }}</span>
+                </button>
+              </div>
+              <div v-if="isAnswered" class="quiz-result">
+                <p v-if="isCorrect" class="result-message correct-message">
+                  ✅ Правильно! Відмінна робота!
+                </p>
+                <p v-else class="result-message incorrect-message">
+                  ❌ Неправильно. Правильна відповідь: {{ currentQuestion.options[currentQuestion.answer] }}
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -160,6 +192,7 @@
 <script setup>
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { getCachedStars, getCachedAnimatedStars } from '../utils/starBackground.js'
+import { getRandomQuestionFromQuiz, validateQuizResponse, updateUserProgress } from '../utils/logic.js'
 
 const props = defineProps({
   planetData: {
@@ -252,9 +285,13 @@ const constellationLines = ref([
 
 const emit = defineEmits(['close'])
 
+const hasImage = computed(() => {
+  return props.planetData.image && props.planetData.image !== '/images/...'
+})
+
 const hasMedia = computed(() => {
-  return (props.planetData.video && props.planetData.video !== 'https://') ||
-         (props.planetData.sound && props.planetData.sound !== '/sounds/...')
+  // Медіа секція завжди показується, навіть якщо немає фото (буде плейсхолдер)
+  return true
 })
 
 function closeCard() {
@@ -267,12 +304,6 @@ function handleEscape(event) {
   }
 }
 
-function openVideo() {
-  if (props.planetData.video && props.planetData.video !== 'https://') {
-    window.open(props.planetData.video, '_blank')
-  }
-}
-
 function playSound() {
   if (props.planetData.sound && props.planetData.sound !== '/sounds/...') {
     const audio = new Audio(props.planetData.sound)
@@ -280,15 +311,48 @@ function playSound() {
   }
 }
 
-function startQuiz() {
-  // TODO: Implement quiz functionality
-  console.log('Quiz started for', props.planetData.name)
+// Quiz state
+const currentQuestion = computed(() => {
+  if (props.planetData.quiz && props.planetData.quiz.length > 0) {
+    return getRandomQuestionFromQuiz(props.planetData.quiz)
+  }
+  return null
+})
+
+const selectedAnswer = ref(null)
+const isAnswered = ref(false)
+const isCorrect = ref(false)
+
+function selectAnswer(answerKey) {
+  if (isAnswered.value) return
+  
+  selectedAnswer.value = answerKey
+  isAnswered.value = true
+  isCorrect.value = validateQuizResponse(currentQuestion.value, answerKey)
+  
+  // Оновлюємо прогрес користувача, якщо відповідь правильна
+  if (isCorrect.value && props.planetId) {
+    updateUserProgress(props.planetId)
+  }
 }
+
+// Скидаємо стан вікторини при зміні планети або відкритті картки
+function resetQuizState() {
+  selectedAnswer.value = null
+  isAnswered.value = false
+  isCorrect.value = false
+}
+
+watch(() => props.planetId, () => {
+  resetQuizState()
+})
 
 // Додаємо обробник для клавіші ESC
 watch(() => props.isVisible, (isVisible) => {
   if (isVisible) {
     document.addEventListener('keydown', handleEscape)
+    // Скидаємо стан вікторини при відкритті картки
+    resetQuizState()
     // Не відтворюємо відео автоматично - користувач сам запустить через controls
   } else {
     document.removeEventListener('keydown', handleEscape)
@@ -702,6 +766,54 @@ onUnmounted(() => {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.media-photo-container {
+  width: 100%;
+  margin-bottom: 20px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.media-photo {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: cover;
+  aspect-ratio: 16 / 9;
+  transition: transform 0.3s ease;
+}
+
+.media-photo:hover {
+  transform: scale(1.02);
+}
+
+.media-photo-placeholder {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.placeholder-icon {
+  font-size: 3rem;
+  margin-bottom: 10px;
+  opacity: 0.6;
+}
+
+.placeholder-text {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  margin: 0;
+  opacity: 0.6;
+}
+
 .media-buttons {
   display: flex;
   gap: 15px;
@@ -733,49 +845,117 @@ onUnmounted(() => {
   box-shadow: 0 5px 20px rgba(100, 150, 255, 0.4);
 }
 
-.video-button:hover {
-  border-color: #ff6b6b;
-  box-shadow: 0 5px 20px rgba(255, 107, 107, 0.4);
-}
-
 .sound-button:hover {
   border-color: #4ecdc4;
   box-shadow: 0 5px 20px rgba(78, 205, 196, 0.4);
 }
 
-.quiz-section {
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 165, 0, 0.1));
-  border-color: rgba(255, 215, 0, 0.3);
+
+.quiz-content {
+  font-family: 'Nunito', sans-serif;
 }
 
-.quiz-preview {
+.quiz-question {
   font-family: 'Nunito', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #fff;
+  margin: 0 0 20px 0;
+  line-height: 1.6;
+}
+
+.quiz-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.quiz-option {
+  font-family: 'Nunito', sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #e0e0e0;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.quiz-option:hover:not(.disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 215, 0, 0.5);
+  transform: translateX(5px);
+}
+
+.quiz-option.selected:not(.disabled) {
+  border-color: #ffd700;
+  background: rgba(255, 215, 0, 0.15);
+  color: #ffd700;
+}
+
+.quiz-option.correct {
+  border-color: #4ade80;
+  background: rgba(74, 222, 128, 0.2);
+  color: #4ade80;
+}
+
+.quiz-option.incorrect {
+  border-color: #f87171;
+  background: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+}
+
+.quiz-option.disabled {
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+.option-label {
+  font-weight: 700;
+  min-width: 24px;
+}
+
+.option-text {
+  flex: 1;
+}
+
+.quiz-result {
+  margin-top: 20px;
+  padding: 15px;
+  border-radius: 12px;
   text-align: center;
 }
 
-.quiz-preview p {
+.result-message {
   font-family: 'Nunito', sans-serif;
-  font-weight: 400;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+  padding: 0;
 }
 
-.quiz-button {
-  font-family: 'Nunito', sans-serif;
-  margin-top: 15px;
-  padding: 15px 30px;
-  border: 2px solid #ffd700;
-  border-radius: 25px;
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 165, 0, 0.2));
-  color: #ffd700;
-  font-size: 1.1rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.3s ease;
+.correct-message {
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.1);
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(74, 222, 128, 0.3);
 }
 
-.quiz-button:hover {
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.4), rgba(255, 165, 0, 0.4));
-  transform: translateY(-3px) scale(1.05);
-  box-shadow: 0 5px 25px rgba(255, 215, 0, 0.5);
+.incorrect-message {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(248, 113, 113, 0.3);
 }
 
 .card-decoration {

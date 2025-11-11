@@ -12,11 +12,11 @@ export const galaxyConfig = {
     video: "https://www.youtube.com/watch?v=6tmbeLTHC_0", // Сонце - NASA відео
     quiz: [
       {
-        question: "Question 1",
+        question: "Яка температура на поверхні Сонця?",
         options: {
-          a: "Option 1",
-          b: "Option 2",
-          c: "Option 3",
+          a: "Близько 5 500°C",
+          b: "Близько 10 000°C",
+          c: "Близько 1 000°C",
         },
         answer: "a",
       },
@@ -34,11 +34,11 @@ export const galaxyConfig = {
     video: "https://www.youtube.com/watch?v=0KBjnNuhRHs", // Меркурій
     quiz: [
       {
-        question: "Question 1",
+        question: "Яка найближча планета до Сонця?",
         options: {
-          a: "Option 1",
-          b: "Option 2",
-          c: "Option 3",
+          a: "Венера",
+          b: "Меркурій",
+          c: "Земля",
         },
         answer: "b",
       },
@@ -57,13 +57,13 @@ export const galaxyConfig = {
     video: "https://www.youtube.com/watch?v=B4XzLDM3Py8", // Венера
     quiz: [
       {
-        question: "Question 1",
+        question: "Чому Венеру називають «гарячою сестрою Землі»?",
         options: {
-          a: "Option 1",
-          b: "Option 2",
-          c: "Option 3",
+          a: "Тому що вона найближча до Землі",
+          b: "Тому що вона такого ж розміру як Земля",
+          c: "Тому що парниковий ефект робить її дуже гарячою",
         },
-        answer: "с",
+        answer: "c",
       },
     ],
   },
@@ -80,11 +80,11 @@ export const galaxyConfig = {
     video: "https://www.youtube.com/watch?v=dhRUe-gz690", // Земля
     quiz: [
       {
-        question: "Question 1",
+        question: "Скільки відсотків поверхні Землі покрито водою?",
         options: {
-          a: "Option 1",
-          b: "Option 2",
-          c: "Option 3",
+          a: "71%",
+          b: "50%",
+          c: "90%",
         },
         answer: "a",
       },
@@ -102,11 +102,11 @@ export const galaxyConfig = {
     video: "https://www.youtube.com/watch?v=D8pnmwOXhoY", // Марс
     quiz: [
       {
-        question: "Question 1",
+        question: "Яка найвища гора в Сонячній системі знаходиться на Марсі?",
         options: {
-          a: "Option 1",
-          b: "Option 2",
-          c: "Option 3",
+          a: "Еверест",
+          b: "Олімп",
+          c: "Кіліманджаро",
         },
         answer: "b",
       },
@@ -124,11 +124,11 @@ export const galaxyConfig = {
     video: "https://www.youtube.com/watch?v=PtkqwslbLY8", // Юпітер
     quiz: [
       {
-        question: "Question 1",
+        question: "Яка планета є найбільшою в Сонячній системі?",
         options: {
-          a: "Option 1",
-          b: "Option 2",
-          c: "Option 3",
+          a: "Сатурн",
+          b: "Нептун",
+          c: "Юпітер",
         },
         answer: "c",
       },
@@ -146,11 +146,11 @@ export const galaxyConfig = {
     video: "https://www.youtube.com/watch?v=epZdZaEQhS0", // Сатурн
     quiz: [
       {
-        question: "Question 1",
+        question: "З чого складаються кільця Сатурна?",
         options: {
-          a: "Option 1",
-          b: "Option 2",
-          c: "Option 3",
+          a: "З льодових і кам'яних частинок",
+          b: "З газів",
+          c: "З металу",
         },
         answer: "a",
       },
@@ -169,11 +169,11 @@ export const galaxyConfig = {
     video: "https://www.youtube.com/watch?v=m4NXbFOQOGQ", // Уран
     quiz: [
       {
-        question: "Question 1",
+        question: "Чому Уран має блакитний відтінок?",
         options: {
-          a: "Option 1",
-          b: "Option 2",
-          c: "Option 3",
+          a: "Через воду на поверхні",
+          b: "Через метан в атмосфері",
+          c: "Через відбивання світла",
         },
         answer: "b",
       },
@@ -192,11 +192,11 @@ export const galaxyConfig = {
     video: "https://www.youtube.com/watch?v=N6n-9l1eV2Q", // Нептун
     quiz: [
       {
-        question: "Question 1",
+        question: "Яка швидкість вітрів на Нептуні може сягати?",
         options: {
-          a: "Option 1",
-          b: "Option 2",
-          c: "Option 3",
+          a: "500 км/год",
+          b: "1 000 км/год",
+          c: "2 000 км/год",
         },
         answer: "c",
       },
