@@ -29,12 +29,15 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted } from 'vue'
+import { ref, computed, nextTick, onMounted, watch, inject } from 'vue'
 import Planet from '../../src/components/Planet.vue'
 import PlanetCard from '../../src/components/PlanetCard.vue'
 import { planets } from '../data/planets'
 import { galaxyConfig } from '../utils/data.js'
 import {useWindowSize } from '@vueuse/core'
+
+// Отримуємо starsReady через inject
+const starsReady = inject('starsReady', ref(false))
 
 const planetData = ref(planets)
 
@@ -124,24 +127,23 @@ function closePlanetCard() {
   }, 300) // Затримка для завершення анімації
 }
 
-// Завантаження сторінки з fade-in ефектом - оптимізовано
-onMounted(() => {
-  // Зменшено затримку, оскільки відео тепер завантажуються lazy
-  const minDelay = 300
-  const startTime = Date.now()
-  
-  // Просте рішення - показуємо сторінку після мінімальної затримки
-  // Відео будуть завантажуватися через Intersection Observer
-  const showPage = () => {
-    const elapsed = Date.now() - startTime
-    if (elapsed >= minDelay) {
+// Завантаження сторінки - чекаємо поки зірки будуть готові
+watch(starsReady, (ready) => {
+  if (ready) {
+    // Після того, як зірки готові, показуємо сторінку з невеликою затримкою
+    setTimeout(() => {
       isPageLoaded.value = true
-    } else {
-      setTimeout(showPage, 50)
-    }
+    }, 200)
   }
-  
-  showPage()
+}, { immediate: true })
+
+// Fallback - якщо зірки не готові протягом 8 секунд, показуємо сторінку все одно
+onMounted(() => {
+  setTimeout(() => {
+    if (!starsReady.value) {
+      isPageLoaded.value = true
+    }
+  }, 8000)
 })
 
 </script>

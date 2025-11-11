@@ -30,7 +30,7 @@
         :style="videoStyle" 
         :src="planet.animationPath" 
         class="planet-video" 
-        :autoplay="isHovered && shouldPlay"
+        :autoplay="false"
         :loop="true" 
         preload="none"
         muted 

@@ -102,8 +102,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { getCachedStars, getCachedAnimatedStars } from '../utils/starBackground.js'
+
+// Emit події про готовність рендерингу
+const emit = defineEmits(['stars-ready'])
 
 // Використовуємо кешовані зірки з градієнтами (дуже швидко)
 const starPattern = computed(() => getCachedStars())
@@ -241,7 +244,7 @@ function generateDistantPlanet(id) {
 }
 
 // Генеруємо зменшену кількість об'єктів при монтуванні
-onMounted(() => {
+onMounted(async () => {
   // Туманності (2 замість 6)
   nebulae.value = Array.from({ length: 2 }, (_, i) => generateNebula(i))
   
@@ -253,6 +256,26 @@ onMounted(() => {
   
   // Далекі планети (1 замість 3)
   distantPlanets.value = Array.from({ length: 1 }, (_, i) => generateDistantPlanet(i))
+  
+  // Чекаємо поки DOM оновиться і всі елементи будуть відрендерені
+  await nextTick()
+  
+  // Використовуємо подвійний requestAnimationFrame для гарантії завершення рендерингу
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      // Дочекаємося початку анімації сузір'й (перші лінії починаються відразу)
+      // Але даємо час на те, щоб всі елементи відрендерились і CSS застосувався
+      // Обчислюємо час до появи останньої лінії сузір'й (не завершення, а початку)
+      const maxLineDelay = (constellationLines.value.length - 1) * 0.15
+      // Дочекаємося, поки остання лінія почне малюватися, плюс невеликий запас
+      // Це забезпечить, що всі сузір'я вже почали анімуватися
+      const waitTime = (maxLineDelay + 1) * 1000 // +1 секунда запасу
+      
+      setTimeout(() => {
+        emit('stars-ready')
+      }, Math.min(waitTime, 3000)) // Максимум 3 секунди
+    })
+  })
 })
 </script>
 
