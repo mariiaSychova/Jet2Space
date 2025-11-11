@@ -36,9 +36,7 @@
             ref="planetVideo"
             :src="planetVideoUrl"
             class="planet-video"
-            autoplay
             loop
-            muted
             playsinline
             controls
           ></video>
@@ -115,10 +113,14 @@
 
         <!-- Starry background -->
         <div class="stars-background">
+          <!-- Статичні зірки через CSS градієнти (дуже швидко) -->
+          <div class="stars-layer" :style="{ backgroundImage: starPattern }"></div>
+          
+          <!-- Тільки невелика кількість анімованих зірок -->
           <div 
-            v-for="star in stars" 
+            v-for="star in animatedStars" 
             :key="star.id"
-            class="star"
+            class="animated-star"
             :style="{
               left: star.x + '%',
               top: star.y + '%',
@@ -157,6 +159,7 @@
 
 <script setup>
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
+import { getCachedStars, getCachedAnimatedStars } from '../utils/starBackground.js'
 
 const props = defineProps({
   planetData: {
@@ -194,13 +197,13 @@ function convertToYouTubeEmbed(url) {
   // Коротке посилання youtu.be
   const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/)
   if (shortMatch) {
-    return `https://www.youtube.com/embed/${shortMatch[1]}?autoplay=1&loop=1&playlist=${shortMatch[1]}&mute=1`
+    return `https://www.youtube.com/embed/${shortMatch[1]}?loop=1&playlist=${shortMatch[1]}`
   }
   
   // Звичайне YouTube посилання
   const regularMatch = url.match(/(?:youtube\.com\/watch\?v=|youtube\.com\/v\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]+)/)
   if (regularMatch) {
-    return `https://www.youtube.com/embed/${regularMatch[1]}?autoplay=1&loop=1&playlist=${regularMatch[1]}&mute=1`
+    return `https://www.youtube.com/embed/${regularMatch[1]}?loop=1&playlist=${regularMatch[1]}`
   }
   
   return null
@@ -224,8 +227,12 @@ const youtubeEmbedUrl = computed(() => {
   return null
 })
 
-// Генерація зірок для фону
-const stars = ref([])
+// Використовуємо кешовані зірки з градієнтами (дуже швидко)
+const starPattern = computed(() => getCachedStars())
+
+// Тільки невелика кількість анімованих зірок (10 замість 100)
+const animatedStars = ref(getCachedAnimatedStars().slice(0, 10))
+
 const constellationLines = ref([
   // Сузір'я 1 (Великий Віз)
   { x1: 15, y1: 20, x2: 25, y2: 25 },
@@ -242,33 +249,6 @@ const constellationLines = ref([
   { x1: 40, y1: 60, x2: 35, y2: 70 },
   { x1: 30, y1: 65, x2: 25, y2: 75 },
 ])
-
-// Функція для генерації випадкової зірки
-function generateStar(id) {
-  return {
-    id: id,
-    x: Math.random() * 95 + 2.5, // 2.5-97.5% щоб не виходили за межі
-    y: Math.random() * 95 + 2.5,
-    size: Math.random() * 2.5 + 0.8, // 0.8-3.3px
-    delay: Math.random() * 4, // різні затримки для різноманітності
-    duration: Math.random() * 2.5 + 1.8, // 1.8-4.3s - різні швидкості блимання
-  }
-}
-
-// Генеруємо зірки при монтуванні або коли картка стає видимою
-watch(() => props.isVisible, (isVisible) => {
-  if (isVisible && stars.value.length === 0) {
-    // Генеруємо ~100 зірок для красивого та живого фону
-    stars.value = Array.from({ length: 100 }, (_, i) => generateStar(i))
-  }
-})
-
-// Генеруємо зірки при монтуванні
-onMounted(() => {
-  if (props.isVisible) {
-    stars.value = Array.from({ length: 100 }, (_, i) => generateStar(i))
-  }
-})
 
 const emit = defineEmits(['close'])
 
@@ -309,14 +289,7 @@ function startQuiz() {
 watch(() => props.isVisible, (isVisible) => {
   if (isVisible) {
     document.addEventListener('keydown', handleEscape)
-    // Автоматично відтворюємо відео при відкритті картки (тільки для звичайних video, не YouTube)
-    if (!isYouTubeVideo.value) {
-      setTimeout(() => {
-        if (planetVideo.value && planetVideoUrl.value) {
-          planetVideo.value.play().catch(error => console.error('Video play failed:', error))
-        }
-      }, 100)
-    }
+    // Не відтворюємо відео автоматично - користувач сам запустить через controls
   } else {
     document.removeEventListener('keydown', handleEscape)
     // Зупиняємо відео при закритті картки (тільки для звичайних video, не YouTube)
@@ -326,14 +299,8 @@ watch(() => props.isVisible, (isVisible) => {
   }
 })
 
-// Також відтворюємо відео при зміні planetData (тільки для звичайних video, не YouTube)
-watch(() => props.planetData.video, () => {
-  if (props.isVisible && !isYouTubeVideo.value && planetVideo.value && planetVideoUrl.value) {
-    setTimeout(() => {
-      planetVideo.value?.play().catch(error => console.error('Video play failed:', error))
-    }, 100)
-  }
-})
+// Не відтворюємо відео автоматично при зміні planetData
+// Користувач сам запустить через controls
 
 onMounted(() => {
   if (props.isVisible) {
@@ -355,8 +322,8 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.85);
+  /* Видалено backdrop-filter для кращої продуктивності */
   display: flex;
   justify-content: center;
   align-items: center;
@@ -398,7 +365,24 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-.star {
+/* Статичні зірки через CSS градієнти (дуже швидко, без DOM елементів) */
+.stars-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  background-size: 100% 100%;
+  opacity: 0.7;
+  will-change: opacity;
+  pointer-events: none;
+  border-radius: 30px;
+}
+
+/* Анімовані зірки (тільки невелика кількість для ефекту) */
+.animated-star {
   position: absolute;
   background: white;
   border-radius: 50%;
@@ -408,21 +392,13 @@ onUnmounted(() => {
     0 0 6px rgba(150, 180, 255, 0.5),
     0 0 8px rgba(100, 150, 255, 0.3);
   animation: twinkleStar infinite ease-in-out;
-  opacity: 0.4;
+  opacity: 0.6;
   transform-origin: center;
+  will-change: transform, opacity;
 }
 
-/* Більші зірки мають інтенсивніше світіння */
-.star:nth-child(4n) {
-  box-shadow: 
-    0 0 3px rgba(255, 255, 255, 1),
-    0 0 6px rgba(255, 255, 255, 0.8),
-    0 0 9px rgba(150, 180, 255, 0.6),
-    0 0 12px rgba(100, 150, 255, 0.4);
-}
-
-/* Деякі зірки мають тепліший відтінок */
-.star:nth-child(7n) {
+/* Різні відтінки для анімованих зірок */
+.animated-star:nth-child(3n) {
   box-shadow: 
     0 0 2px rgba(255, 220, 150, 0.9),
     0 0 4px rgba(255, 200, 100, 0.7),
@@ -468,19 +444,11 @@ onUnmounted(() => {
 
 @keyframes twinkleStar {
   0%, 100% {
-    opacity: 0.2;
-    transform: scale(0.7);
-  }
-  25% {
-    opacity: 0.6;
-    transform: scale(1);
+    opacity: 0.4;
+    transform: scale(0.9);
   }
   50% {
-    opacity: 1;
-    transform: scale(1.3);
-  }
-  75% {
-    opacity: 0.7;
+    opacity: 0.8;
     transform: scale(1.1);
   }
 }
@@ -532,7 +500,7 @@ onUnmounted(() => {
   justify-content: center;
   transition: all 0.3s ease;
   z-index: 10;
-  backdrop-filter: blur(5px);
+  /* Видалено backdrop-filter для кращої продуктивності */
 }
 
 .close-button:hover {

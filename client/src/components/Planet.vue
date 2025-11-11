@@ -1,53 +1,77 @@
 <template>
-  <div class="planet-container" :data-planet-id="planet.id" :style="containerStyleWithBounce">
+  <div 
+    class="planet-container" 
+    :data-planet-id="planet.id" 
+    :class="{ 'card-open': props.isCardOpen }"
+    :style="containerStyleWithBounce"
+    ref="containerRef"
+  >
     <!-- Гало навколо планети (рухається разом з планетою) -->
     <div class="planet-halo"></div>
     <div 
       class="planet-wrapper" 
       :style="wrapperStyle" 
       @click="goToPlanetDetail" 
-      @mouseover="playVideo"
-      @mouseleave="pauseVideo" 
+      @mouseenter="handleMouseEnter"
+      @mouseleave="handleMouseLeave" 
       :title="`Клікніть, щоб дізнатися більше про ${planet.name}`"
-      :class="{ 'planet-bouncing': true }"
+      :class="{ 'planet-bouncing': true, 'is-visible': isVisible, 'card-open': props.isCardOpen }"
     >
+      <!-- Статичне зображення за замовчуванням -->
+      <div 
+        v-if="!shouldLoadVideo" 
+        class="planet-static"
+        :style="planetStaticStyle"
+      ></div>
+      <!-- Відео завантажується тільки при hover -->
       <video 
+        v-if="shouldLoadVideo"
         ref="videoPlayer" 
         :style="videoStyle" 
         :src="planet.animationPath" 
         class="planet-video" 
-        :autoplay="true"
+        :autoplay="isHovered && shouldPlay"
         :loop="true" 
+        preload="none"
         muted 
         playsinline
+        @loadeddata="onVideoLoaded"
+        @canplay="onVideoCanPlay"
       ></video>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 
 const props = defineProps({
   planet: {
     type: Object,
     required: true,
   },
+  isCardOpen: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const emit = defineEmits(['planet-click'])
 
 const videoPlayer = ref(null)
+const containerRef = ref(null)
+const isVisible = ref(false)
+const shouldLoadVideo = ref(false)
+const isHovered = ref(false)
+const intersectionObserver = ref(null)
 
 
+// Мемоізуємо стилі для кращої продуктивності
 const wrapperStyle = computed(() => {
   const size = props.planet.size || 200;
   const visualScale = props.planet.visualScale || 1;
   const bounceDuration = props.planet.bounceDuration || 4
-  // Якщо є visualScale, збільшуємо контейнер, щоб відео не обрізалося
-  // Але залишаємо базовий розмір для позиціонування
   const containerSize = size * Math.max(1, visualScale);
-  // Використовуємо однакові розміри для width і height, щоб гарантувати круглу форму
   return {
     width: `${containerSize}px`,
     height: `${containerSize}px`,
@@ -68,90 +92,152 @@ const containerStyleWithBounce = computed(() => {
 const videoStyle = computed(() => {
   const size = props.planet.size || 200
   const scale = props.planet.visualScale || 1
-  const rotationSpeed = props.planet.rotationSpeed || 1
-  // Обчислюємо розмір відео безпосередньо
   const videoSize = size * scale
   return {
     width: `${videoSize}px`,
     height: `${videoSize}px`,
-    '--rotation-speed': rotationSpeed,
   }
 })
 
-// Обмежуємо playbackRate до підтримуваного браузером діапазону (зазвичай 0.25-4.0)
+// Обмежуємо playbackRate до підтримуваного браузером діапазону
 function clampPlaybackRate(rate) {
-  const minRate = 0.25  // Мінімальна підтримувана швидкість
-  const maxRate = 4.0   // Максимальна підтримувана швидкість
-  return Math.max(minRate, Math.min(maxRate, rate))
+  return Math.max(0.25, Math.min(4.0, rate))
 }
 
-// Встановлюємо швидкість відтворення відео на основі реальної швидкості обертання
+// Встановлюємо швидкість відтворення відео
 function setupVideoPlaybackRate() {
-  if (videoPlayer.value) {
-    try {
-      const rotationSpeed = props.planet.rotationSpeed || 1
-      // Встановлюємо playbackRate для відображення реальної швидкості обертання
-      // Обмежуємо значення до підтримуваного діапазону
-      const clampedRate = clampPlaybackRate(rotationSpeed)
-      videoPlayer.value.playbackRate = clampedRate
-      
-      // Автоматично відтворюємо відео з правильною швидкістю
-      videoPlayer.value.play().catch(error => {
-        console.error("Video play failed:", error)
-      })
-    } catch (error) {
-      // Якщо не вдається встановити playbackRate, просто ігноруємо помилку
-      console.warn("Could not set playback rate:", error)
+  if (!videoPlayer.value || !isVisible.value || props.isCardOpen) return
+  
+  try {
+    const rotationSpeed = props.planet.rotationSpeed || 1
+    const clampedRate = clampPlaybackRate(rotationSpeed)
+    videoPlayer.value.playbackRate = clampedRate
+    
+    if (isVisible.value && !isHovered.value && !props.isCardOpen) {
+      videoPlayer.value.play().catch(() => {})
     }
+  } catch (error) {
+    // Ігноруємо помилки
   }
 }
 
-function playVideo() {
-  if (videoPlayer.value) {
+function onVideoLoaded() {
+  // Не відтворюємо відео, якщо картка відкрита
+  if (!props.isCardOpen) {
+    setupVideoPlaybackRate()
+  }
+}
+
+function onVideoCanPlay() {
+  // Не відтворюємо відео, якщо картка відкрита
+  if (!props.isCardOpen && isVisible.value && !isHovered.value) {
+    setupVideoPlaybackRate()
+  }
+}
+
+function handleMouseEnter() {
+  isHovered.value = true
+  // Не відтворюємо відео при hover, якщо картка відкрита
+  if (videoPlayer.value && shouldLoadVideo.value && !props.isCardOpen) {
     try {
-      // Збільшуємо швидкість при наведенні для візуального ефекту
       const rotationSpeed = props.planet.rotationSpeed || 1
       const hoverRate = clampPlaybackRate(rotationSpeed * 1.5)
       videoPlayer.value.playbackRate = hoverRate
-      videoPlayer.value.play().catch(error => console.error("Video play failed:", error))
+      videoPlayer.value.play().catch(() => {})
     } catch (error) {
-      console.warn("Could not set playback rate on hover:", error)
+      // Ігноруємо помилки
     }
   }
 }
 
-function pauseVideo() {
-  // Повертаємо нормальну швидкість обертання при відведенні миші
-  if (videoPlayer.value) {
+function handleMouseLeave() {
+  isHovered.value = false
+  // Не відтворюємо відео, якщо картка відкрита
+  if (videoPlayer.value && shouldLoadVideo.value && !props.isCardOpen) {
     try {
       const rotationSpeed = props.planet.rotationSpeed || 1
       const clampedRate = clampPlaybackRate(rotationSpeed)
       videoPlayer.value.playbackRate = clampedRate
     } catch (error) {
-      console.warn("Could not set playback rate on pause:", error)
+      // Ігноруємо помилки
     }
   }
 }
 
 function goToPlanetDetail() {
-  console.log('goToPlanetDetail called for planet:', props.planet.id, props.planet.name)
   emit('planet-click', props.planet.id)
 }
 
-// Налаштовуємо відео при монтуванні
+// Використовуємо Intersection Observer для lazy loading
 onMounted(() => {
-  setupVideoPlaybackRate()
+  if (!containerRef.value) return
   
-  // Також налаштовуємо при зміні планети
+  // Завантажуємо відео коли планета входить у viewport з запасом
+  intersectionObserver.value = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting && !props.isCardOpen) {
+          isVisible.value = true
+          // Завантажуємо відео трохи пізніше для кращої продуктивності
+          // Але не завантажуємо, якщо картка вже відкрита
+          setTimeout(() => {
+            if (!props.isCardOpen) {
+              shouldLoadVideo.value = true
+            }
+          }, 100)
+          // Відключаємо observer після завантаження
+          if (intersectionObserver.value && containerRef.value) {
+            intersectionObserver.value.unobserve(containerRef.value)
+          }
+        }
+      })
+    },
+    {
+      rootMargin: '50px', // Завантажуємо за 50px до появи у viewport
+      threshold: 0.01
+    }
+  )
+  
+  intersectionObserver.value.observe(containerRef.value)
+})
+
+onUnmounted(() => {
+  if (intersectionObserver.value && containerRef.value) {
+    intersectionObserver.value.unobserve(containerRef.value)
+    intersectionObserver.value.disconnect()
+  }
+  
+  // Зупиняємо відео при демонтажі
   if (videoPlayer.value) {
-    videoPlayer.value.addEventListener('loadedmetadata', setupVideoPlaybackRate)
+    videoPlayer.value.pause()
+    videoPlayer.value.src = ''
+    videoPlayer.value.load()
   }
 })
 
-// Оновлюємо швидкість при зміні планети
-watch(() => props.planet, () => {
-  setupVideoPlaybackRate()
-}, { immediate: true })
+// Оновлюємо відео коли воно завантажиться
+watch([isVisible, shouldLoadVideo], () => {
+  if (isVisible.value && shouldLoadVideo.value) {
+    nextTick(() => {
+      setupVideoPlaybackRate()
+    })
+  }
+})
+
+// Призупиняємо відео коли відкрита картка планети
+watch(() => props.isCardOpen, (isOpen) => {
+  if (videoPlayer.value && shouldLoadVideo.value) {
+    if (isOpen) {
+      // Призупиняємо відео коли картка відкрита
+      videoPlayer.value.pause()
+    } else {
+      // Відновлюємо відтворення тільки якщо планета видима і не на hover
+      if (isVisible.value && !isHovered.value) {
+        setupVideoPlaybackRate()
+      }
+    }
+  }
+})
 </script>
 
 <style scoped>
@@ -167,30 +253,43 @@ watch(() => props.planet, () => {
   position: relative;
   z-index: 2;
   border-radius: 50%;
-  overflow: hidden; /* Залишаємо hidden, але wrapper тепер достатньо великий для відео */
-
+  overflow: hidden;
   display: block;
   cursor: pointer;
-
-  transition: box-shadow 0.4s ease;
-  animation: planetBounce var(--bounce-duration, 4s) ease-in-out infinite;
-  
-  /* Гарантуємо круглу форму - використовуємо aspect-ratio */
   box-sizing: border-box;
   aspect-ratio: 1 / 1;
+  /* Оптимізація продуктивності */
+  will-change: transform;
+  contain: layout style paint;
+  /* Спрощена анімація */
+  animation: planetBounce var(--bounce-duration, 4s) ease-in-out infinite;
+  /* Спрощений box-shadow */
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Призупиняємо анімацію коли картка відкрита */
+.planet-wrapper.card-open {
+  animation-play-state: paused;
+}
+
+.planet-container:has(.card-open) .planet-halo {
+  animation-play-state: paused;
 }
 
 .planet-wrapper:hover {
-  box-shadow: 0 0 60px 8px rgba(255, 255, 255, 0.4);
+  /* Спрощений hover effect */
+  box-shadow: 0 0 40px rgba(255, 255, 255, 0.3);
   animation-play-state: paused;
 }
+
 
 .planet-container:hover .planet-halo {
   opacity: 0.8;
   /* При hover гало стає яскравішим, але bounce продовжує працювати через animation */
 }
 
-/* Гало навколо планети - природне космічне світіння */
+/* Гало навколо планети - оптимізоване світіння */
 .planet-halo {
   position: absolute;
   width: 120%;
@@ -201,140 +300,73 @@ watch(() => props.planet, () => {
   transform: translate(-50%, -50%);
   pointer-events: none;
   z-index: 1;
-  /* Комбінована анімація: bounce (синхронізована з планетою) + pulse */
+  /* Спрощена анімація */
   animation: 
     haloBounce var(--bounce-duration, 4s) ease-in-out infinite,
     haloPulse 5s ease-in-out infinite;
   opacity: 0.5;
-  /* Використовуємо box-shadow для природного світіння з об'ємними внутрішніми тінями */
+  /* Оптимізація продуктивності */
+  will-change: transform, opacity;
+  contain: layout style paint;
+  /* Спрощений box-shadow - менше шарів для кращої продуктивності */
   box-shadow: 
-    0 0 20px rgba(255, 255, 255, 0.15),
-    0 0 40px rgba(200, 220, 255, 0.1),
-    0 0 60px rgba(150, 180, 255, 0.08),
-    /* Внутрішні тіні для об'ємності */
-    inset 0 0 20px rgba(255, 255, 255, 0.08),
-    inset 0 0 40px rgba(200, 220, 255, 0.06),
-    inset 0 0 60px rgba(150, 180, 255, 0.04),
-    inset 0 0 80px rgba(100, 150, 255, 0.02);
+    0 0 30px rgba(150, 180, 255, 0.2),
+    0 0 60px rgba(100, 150, 255, 0.1);
 }
 
-/* Різні кольори світіння для різних планет через box-shadow */
+/* Призупиняємо анімацію гало коли картка відкрита */
+.planet-container.card-open .planet-halo {
+  animation-play-state: paused;
+}
+
+/* Різні кольори світіння для різних планет - спрощені */
 .planet-container[data-planet-id="sun"] .planet-halo {
-  box-shadow: 
-    0 0 25px rgba(255, 220, 100, 0.3),
-    0 0 50px rgba(255, 180, 60, 0.2),
-    0 0 75px rgba(255, 140, 30, 0.15),
-    0 0 100px rgba(255, 100, 0, 0.1),
-    /* Внутрішні тіні для об'ємного сонячного світіння */
-    inset 0 0 30px rgba(255, 240, 160, 0.25),
-    inset 0 0 60px rgba(255, 220, 120, 0.18),
-    inset 0 0 90px rgba(255, 200, 80, 0.12),
-    inset 0 0 120px rgba(255, 180, 40, 0.08),
-    inset 0 0 150px rgba(255, 160, 20, 0.04);
+  box-shadow: 0 0 50px rgba(255, 200, 100, 0.4), 0 0 100px rgba(255, 150, 50, 0.2);
   opacity: 0.6;
 }
 
 .planet-container[data-planet-id="mercury"] .planet-halo {
-  box-shadow: 
-    0 0 20px rgba(220, 200, 180, 0.2),
-    0 0 40px rgba(200, 180, 160, 0.15),
-    0 0 60px rgba(180, 160, 140, 0.1),
-    /* Внутрішні тіні для об'ємного сірого світіння */
-    inset 0 0 25px rgba(200, 180, 160, 0.12),
-    inset 0 0 50px rgba(180, 160, 140, 0.08),
-    inset 0 0 75px rgba(160, 140, 120, 0.06),
-    inset 0 0 100px rgba(140, 120, 100, 0.04);
+  box-shadow: 0 0 40px rgba(200, 180, 160, 0.25);
 }
 
 .planet-container[data-planet-id="venus"] .planet-halo {
-  box-shadow: 
-    0 0 20px rgba(255, 230, 200, 0.22),
-    0 0 40px rgba(255, 210, 170, 0.16),
-    0 0 60px rgba(255, 190, 140, 0.12),
-    /* Внутрішні тіні для об'ємного теплого світіння */
-    inset 0 0 25px rgba(255, 220, 180, 0.15),
-    inset 0 0 50px rgba(255, 200, 160, 0.11),
-    inset 0 0 75px rgba(255, 180, 140, 0.08),
-    inset 0 0 100px rgba(255, 160, 120, 0.05);
+  box-shadow: 0 0 40px rgba(255, 210, 170, 0.3);
 }
 
 .planet-container[data-planet-id="earth"] .planet-halo {
-  box-shadow: 
-    0 0 20px rgba(120, 170, 255, 0.25),
-    0 0 40px rgba(100, 150, 255, 0.18),
-    0 0 60px rgba(80, 130, 230, 0.12),
-    0 0 80px rgba(60, 110, 200, 0.08),
-    /* Внутрішні тіні для об'ємного блакитного світіння */
-    inset 0 0 30px rgba(100, 150, 255, 0.15),
-    inset 0 0 60px rgba(80, 130, 230, 0.11),
-    inset 0 0 90px rgba(60, 110, 200, 0.08),
-    inset 0 0 120px rgba(40, 90, 180, 0.05),
-    inset 0 0 150px rgba(20, 70, 160, 0.03);
+  box-shadow: 0 0 50px rgba(100, 150, 255, 0.3);
 }
 
 .planet-container[data-planet-id="mars"] .planet-halo {
-  box-shadow: 
-    0 0 20px rgba(255, 120, 100, 0.22),
-    0 0 40px rgba(230, 100, 80, 0.16),
-    0 0 60px rgba(200, 80, 60, 0.12),
-    /* Внутрішні тіні для об'ємного червоного світіння */
-    inset 0 0 25px rgba(230, 100, 80, 0.15),
-    inset 0 0 50px rgba(200, 80, 60, 0.11),
-    inset 0 0 75px rgba(180, 60, 40, 0.08),
-    inset 0 0 100px rgba(160, 40, 20, 0.05);
+  box-shadow: 0 0 40px rgba(230, 100, 80, 0.3);
 }
 
 .planet-container[data-planet-id="jupiter"] .planet-halo {
-  box-shadow: 
-    0 0 25px rgba(220, 180, 130, 0.22),
-    0 0 50px rgba(200, 160, 110, 0.16),
-    0 0 75px rgba(180, 140, 90, 0.12),
-    /* Внутрішні тіні для об'ємного бежевого світіння */
-    inset 0 0 30px rgba(200, 160, 110, 0.15),
-    inset 0 0 60px rgba(180, 140, 90, 0.11),
-    inset 0 0 90px rgba(160, 120, 70, 0.08),
-    inset 0 0 120px rgba(140, 100, 50, 0.05),
-    inset 0 0 150px rgba(120, 80, 30, 0.03);
+  box-shadow: 0 0 50px rgba(200, 160, 110, 0.3);
 }
 
 .planet-container[data-planet-id="saturn"] .planet-halo {
-  box-shadow: 
-    0 0 25px rgba(255, 230, 200, 0.22),
-    0 0 50px rgba(240, 210, 180, 0.16),
-    0 0 75px rgba(220, 190, 160, 0.12),
-    /* Внутрішні тіні для об'ємного золотистого світіння */
-    inset 0 0 30px rgba(240, 210, 180, 0.15),
-    inset 0 0 60px rgba(220, 190, 160, 0.11),
-    inset 0 0 90px rgba(200, 170, 140, 0.08),
-    inset 0 0 120px rgba(180, 150, 120, 0.05),
-    inset 0 0 150px rgba(160, 130, 100, 0.03);
+  box-shadow: 0 0 50px rgba(240, 210, 180, 0.3);
 }
 
 .planet-container[data-planet-id="uranus"] .planet-halo {
-  box-shadow: 
-    0 0 20px rgba(170, 220, 255, 0.22),
-    0 0 40px rgba(150, 200, 245, 0.16),
-    0 0 60px rgba(130, 180, 235, 0.12),
-    /* Внутрішні тіні для об'ємного світло-блакитного світіння */
-    inset 0 0 25px rgba(150, 200, 245, 0.15),
-    inset 0 0 50px rgba(130, 180, 235, 0.11),
-    inset 0 0 75px rgba(110, 160, 225, 0.08),
-    inset 0 0 100px rgba(90, 140, 215, 0.05),
-    inset 0 0 125px rgba(70, 120, 205, 0.03);
+  box-shadow: 0 0 40px rgba(150, 200, 245, 0.3);
 }
 
 .planet-container[data-planet-id="neptune"] .planet-halo {
-  box-shadow: 
-    0 0 20px rgba(100, 150, 255, 0.26),
-    0 0 40px rgba(80, 130, 235, 0.19),
-    0 0 60px rgba(60, 110, 215, 0.13),
-    0 0 80px rgba(50, 90, 195, 0.08),
-    /* Внутрішні тіні для об'ємного синього світіння */
-    inset 0 0 30px rgba(80, 130, 235, 0.15),
-    inset 0 0 60px rgba(60, 110, 215, 0.11),
-    inset 0 0 90px rgba(50, 90, 195, 0.08),
-    inset 0 0 120px rgba(40, 70, 175, 0.05),
-    inset 0 0 150px rgba(30, 50, 155, 0.03);
+  box-shadow: 0 0 50px rgba(80, 130, 235, 0.3);
+}
+
+.planet-placeholder {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(100, 150, 255, 0.2), transparent);
+  pointer-events: none;
 }
 
 .planet-video {
@@ -345,49 +377,44 @@ watch(() => props.planet, () => {
   border-radius: 50%;
   object-fit: cover;
   object-position: center;
-
   pointer-events: none;
-
-  transition: transform 0.4s ease, filter 0.4s ease;
-  filter: brightness(1);
-  
-  /* Гарантуємо круглу форму відео */
   display: block;
+  /* Оптимізація продуктивності */
+  will-change: transform;
+  /* Спрощена transition */
+  transition: transform 0.3s ease;
 }
 
 .planet-wrapper:hover .planet-video {
-  transform: translate(-50%, -50%) scale(1.15);
-  filter: brightness(1.2);
+  transform: translate(-50%, -50%) scale(1.1);
   transform-origin: center center;
 }
 
-/* Анімація підстрибування */
+/* Оптимізовані анімації з використанням transform */
 @keyframes planetBounce {
   0%, 100% {
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
   50% {
-    transform: translateY(-8px) scale(1);
+    transform: translateY(-6px);
   }
 }
 
-/* Анімація підстрибування гало - синхронізована з планетою */
 @keyframes haloBounce {
   0%, 100% {
     transform: translate(-50%, -50%) translateY(0);
   }
   50% {
-    transform: translate(-50%, -50%) translateY(-8px);
+    transform: translate(-50%, -50%) translateY(-6px);
   }
 }
 
-/* Анімація пульсації гало - тонка, природна (тільки opacity та scale) */
 @keyframes haloPulse {
   0%, 100% {
     opacity: 0.4;
   }
   50% {
-    opacity: 0.65;
+    opacity: 0.6;
   }
 }
 

@@ -7,11 +7,12 @@
       </div>
     </Transition>
 
-    <main class="planets-container" ref="containerRef" :class="{ 'loaded': isPageLoaded }" :style="{ transform: `scale(${scaleFactor})` }">
+    <main class="planets-container" ref="containerRef" :class="{ 'loaded': isPageLoaded, 'card-open': isCardVisible }" :style="{ transform: `scale(${scaleFactor})` }">
       <Planet
         v-for="planet in planetData" 
         :key="planet.id" 
         :planet="planet"
+        :is-card-open="isCardVisible"
         @planet-click="openPlanetCard"
       />
     </main>
@@ -123,51 +124,24 @@ function closePlanetCard() {
   }, 300) // Затримка для завершення анімації
 }
 
-// Завантаження сторінки з fade-in ефектом
+// Завантаження сторінки з fade-in ефектом - оптимізовано
 onMounted(() => {
-  // Мінімальна затримка для показу сторінки (щоб градієнт був видимий)
-  const minDelay = 600
-  // Максимальна затримка (якщо відео завантажуються повільно)
-  const maxDelay = 1500
+  // Зменшено затримку, оскільки відео тепер завантажуються lazy
+  const minDelay = 300
   const startTime = Date.now()
   
-  // Перевіряємо готовність відео
-  const checkReady = () => {
-    const videos = document.querySelectorAll('.planet-video')
+  // Просте рішення - показуємо сторінку після мінімальної затримки
+  // Відео будуть завантажуватися через Intersection Observer
+  const showPage = () => {
     const elapsed = Date.now() - startTime
-    
-    if (videos.length === 0) {
-      // Якщо відео ще не відрендерилися, чекаємо мінімальну затримку
-      if (elapsed < minDelay) {
-        setTimeout(checkReady, 100)
-      } else {
-        isPageLoaded.value = true
-      }
-      return
-    }
-    
-    // Перевіряємо, скільки відео завантажилися
-    let readyCount = 0
-    videos.forEach((video) => {
-      if (video.readyState >= 2) { // HAVE_CURRENT_DATA
-        readyCount++
-      }
-    })
-    
-    const allReady = readyCount >= Math.max(1, videos.length * 0.5) // 50% відео готові
-    const minTimePassed = elapsed >= minDelay
-    
-    // Показуємо сторінку, якщо відео готові або пройшла мінімальна затримка
-    // Але не пізніше максимальної затримки
-    if ((allReady && minTimePassed) || elapsed >= maxDelay) {
+    if (elapsed >= minDelay) {
       isPageLoaded.value = true
     } else {
-      setTimeout(checkReady, 100)
+      setTimeout(showPage, 50)
     }
   }
   
-  // Починаємо перевірку після невеликої затримки для рендерингу
-  setTimeout(checkReady, 200)
+  showPage()
 })
 
 </script>
@@ -213,6 +187,13 @@ onMounted(() => {
 
 .planets-container.loaded {
   opacity: 1;
+}
+
+/* Зменшуємо opacity планет коли картка відкрита для кращого фокусу */
+.planets-container.card-open {
+  opacity: 0.3;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
 }
 
 /* Loading overlay з градієнтним fade */
