@@ -24,6 +24,9 @@
       :is-visible="isCardVisible"
       @close="closePlanetCard"
     />
+
+    <!-- Stella Component -->
+    <Stella ref="stella" />
   </div>
 </template>
 
@@ -31,9 +34,10 @@
 import { ref, computed, nextTick, onMounted } from 'vue'
 import Planet from '../../src/components/Planet.vue'
 import PlanetCard from '../../src/components/PlanetCard.vue'
+import Stella from '../../src/components/Stella.vue'
 import { planets } from '../data/planets'
 import { galaxyConfig } from '../utils/data.js'
-import {useWindowSize } from '@vueuse/core'
+import { useWindowSize } from '@vueuse/core'
 
 const planetData = ref(planets)
 
@@ -44,6 +48,7 @@ const selectedPlanetData = ref(null)
 const selectedPlanetId = ref(null)
 const isCardVisible = ref(false)
 const isPageLoaded = ref(false)
+const stella = ref(null)
 
 const planetGap = 40
 const idealContainerWidth = computed(() => {
@@ -104,6 +109,11 @@ async function openPlanetCard(planetId) {
   
   // Після того, як компонент відрендерився, показуємо картку
   isCardVisible.value = true
+  
+  // Стелла каже про подорож
+  if (stella.value) {
+    stella.value.speak('traveling')
+  }
   
   // Блокуємо скрол сторінки під час відкриття картки
   document.body.style.overflow = 'hidden'
@@ -168,6 +178,13 @@ onMounted(() => {
   
   // Починаємо перевірку після невеликої затримки для рендерингу
   setTimeout(checkReady, 200)
+  
+  // Привітання від Стелли після завантаження
+  setTimeout(() => {
+    if (stella.value) {
+      stella.value.speak('welcome')
+    }
+  }, 2000) // Через 2 секунди після завантаження сторінки
 })
 
 </script>
