@@ -270,13 +270,22 @@ watch(() => props.isCardOpen, (isOpen) => {
       // Призупиняємо відео коли картка відкрита
       videoPlayer.value.pause()
     } else {
-      // Відновлюємо відтворення тільки якщо планета видима і не на hover
+      // Відновлюємо відтворення одразу без жодних затримок
       if (isVisible.value && !isHovered.value) {
-        setupVideoPlaybackRate()
+        try {
+          // Встановлюємо playbackRate одразу
+          const rotationSpeed = props.planet.rotationSpeed || 1
+          const clampedRate = clampPlaybackRate(rotationSpeed)
+          videoPlayer.value.playbackRate = clampedRate
+          // Відновлюємо відтворення одразу, без жодних асинхронних обгорток
+          videoPlayer.value.play().catch(() => {})
+        } catch (error) {
+          // Ігноруємо помилки
+        }
       }
     }
   }
-})
+}, { immediate: false })
 </script>
 
 <style scoped>
