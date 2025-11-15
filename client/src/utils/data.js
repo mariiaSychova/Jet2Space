@@ -7,9 +7,9 @@ export const galaxyConfig = {
     facts: [
       "Сонце випромінює енергію, якої вистачило б, щоб забезпечити світлом і теплом всі планети Сонячної системи протягом мільярдів років.",
     ],
-    image: "/images/...",
+    image: "/images/sun.jpg",
     sound: "/sounds/...",
-    video: "https://", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/embed/2HoTK_Gqi2Q?si=dnCq7m74puuhBnib", // Url from Google Drive/AWS
     quiz: [
       {
         question: "Question 1",
@@ -29,9 +29,9 @@ export const galaxyConfig = {
     facts: [
       "На Меркурії є ділянки, які постійно перебувають у тіні, навіть на екваторі, де температура може падати до -170°C, і там виявлено крижані відкладення води.",
     ],
-    image: "/images/...",
+    image: "/images/mercury.jpg",
     sound: "/sounds/...",
-    video: "https://", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/embed/0KBjnNuhRHs?si=Z1ITrTJIkSVwCdVO", // Url from Google Drive/AWS
     quiz: [
       {
         question: "Question 1",
@@ -52,9 +52,9 @@ export const galaxyConfig = {
     facts: [
       "Венеру називають «гарячою сестрою Землі», бо її атмосфера створює постійний парниковий ефект, через який планета стала справжньою пекельною печею.",
     ],
-    image: "/images/...",
+    image: "/images/venus.jpg",
     sound: "/sounds/...",
-    video: "https://", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/embed/BvXa1n9fjow?si=ly5vfRydhYhjvq7D", // Url from Google Drive/AWS
     quiz: [
       {
         question: "Question 1",
@@ -75,9 +75,9 @@ export const galaxyConfig = {
     facts: [
       "Хоча Земля здається стабільною, її ядро обертається трохи швидше за поверхню, що створює магнітне поле та впливає на полярні сяйва.",
     ],
-    image: "/images/...",
+    image: "/images/earth.jpg",
     sound: "/sounds/...",
-    video: "https://", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/embed/HCDVN7DCzYE?si=tTszM52k63HeQTrf", // Url from Google Drive/AWS
     quiz: [
       {
         question: "Question 1",
@@ -97,9 +97,9 @@ export const galaxyConfig = {
     facts: [
       "Марс має сезонні пилові бурі, які можуть вкривати всю планету на місяці, роблячи її невидимою навіть для великих телескопів.",
     ],
-    image: "/images/...",
+    image: "/images/mars.jpg",
     sound: "/sounds/...",
-    video: "https://", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/embed/E-PuUs25rJA?si=2o7d3LipGodP-oD5", // Url from Google Drive/AWS
     quiz: [
       {
         question: "Question 1",
@@ -119,9 +119,9 @@ export const galaxyConfig = {
     facts: [
       "Юпітер настільки великий, що його гравітація впливає на комети та астероїди, відхиляючи їх від траєкторій і часто захищаючи внутрішні планети, включно з Землею, від зіткнень.",
     ],
-    image: "/images/...",
+    image: "/images/jupiter.jpg",
     sound: "/sounds/...",
-    video: "https://", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/embed/PtkqwslbLY8?si=jbL2jx0NZ7WGZ-AT", // Url from Google Drive/AWS
     quiz: [
       {
         question: "Question 1",
@@ -141,9 +141,9 @@ export const galaxyConfig = {
     facts: [
       "Хоча Сатурн виглядає як «пухка» планета через свої кільця, він такий легкий, що якби його помістити у величезну водойму, він би плавав.",
     ],
-    image: "/images/...",
+    image: "/images/saturn.jpg",
     sound: "/sounds/...",
-    video: "https://", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/embed/epZdZaEQhS0?si=JbnC5R0LIaO83Xbw", // Url from Google Drive/AWS
     quiz: [
       {
         question: "Question 1",
@@ -164,9 +164,9 @@ export const galaxyConfig = {
     facts: [
       "Через нахил осі полюси Урану на десятки років опиняються у темряві або постійно освітлені, створюючи дивні космічні «нічні й денні цикли».",
     ],
-    image: "/images/...",
+    image: "/images/uranus.jpg",
     sound: "/sounds/...",
-    video: "https://", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/embed/m4NXbFOiOGk?si=b2AgqX3KqMQ8KF6W", // Url from Google Drive/AWS
     quiz: [
       {
         question: "Question 1",
@@ -187,9 +187,9 @@ export const galaxyConfig = {
     facts: [
       "На Нептуні вітер рухається швидше, ніж будь-які урагани на Землі, створюючи справжні «космічні вихори.",
     ],
-    image: "/images/...",
+    image: "/images/neptune.jpg",
     sound: "/sounds/...",
-    video: "https://", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/embed/NStn7zZKXfE?si=wuREsFQ1Ru44jRMq", // Url from Google Drive/AWS
     quiz: [
       {
         question: "Question 1",
