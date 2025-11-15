@@ -31,11 +31,12 @@
         class="planet-video" 
         :autoplay="false"
         :loop="true" 
-        preload="none"
+        preload="metadata"
         muted 
         playsinline
         @loadeddata="onVideoLoaded"
         @canplay="onVideoCanPlay"
+        @loadedmetadata="onVideoMetadataLoaded"
       ></video>
     </div>
   </div>
@@ -104,9 +105,26 @@ const videoStyle = computed(() => {
   }
 })
 
-// Обмежуємо playbackRate до підтримуваного браузером діапазону
+// Обмежуємо playbackRate до оптимального діапазону для плавного відтворення
+// Використовуємо мінімум 1.0 і максимум 2.0 для уникнення пролагів та рваності
+// Масштабуємо швидкості з діапазону [0.004, 2.44] до [1.0, 2.0] зі збереженням пропорцій
 function clampPlaybackRate(rate) {
-  return Math.max(0.25, Math.min(4.0, rate))
+  // Діапазон реальних швидкостей: від 0.004 (Венера) до 2.44 (Юпітер)
+  const MIN_REAL_RATE = 0.004
+  const MAX_REAL_RATE = 2.44
+  
+  // Діапазон playbackRate для плавного відтворення без пролагів та рваності
+  const MIN_PLAYBACK_RATE = 1.0  // Мінімум 1.0 для плавного відтворення
+  const MAX_PLAYBACK_RATE = 2.0  // Максимум для стабільності
+  
+  // Нормалізуємо швидкість до діапазону [0, 1]
+  const normalized = (rate - MIN_REAL_RATE) / (MAX_REAL_RATE - MIN_REAL_RATE)
+  
+  // Масштабуємо до цільового діапазону [1.0, 2.0]
+  const scaledRate = MIN_PLAYBACK_RATE + (normalized * (MAX_PLAYBACK_RATE - MIN_PLAYBACK_RATE))
+  
+  // Обмежуємо до фінального діапазону
+  return Math.max(MIN_PLAYBACK_RATE, Math.min(MAX_PLAYBACK_RATE, scaledRate))
 }
 
 // Встановлюємо швидкість відтворення відео
@@ -137,6 +155,20 @@ function onVideoCanPlay() {
   // Не відтворюємо відео, якщо картка відкрита
   if (!props.isCardOpen && isVisible.value && !isHovered.value) {
     setupVideoPlaybackRate()
+  }
+}
+
+function onVideoMetadataLoaded() {
+  // Коли метадані відео завантажені, встановлюємо playbackRate одразу
+  // Це допомагає уникнути затримок при встановленні швидкості
+  if (videoPlayer.value && !props.isCardOpen) {
+    try {
+      const rotationSpeed = props.planet.rotationSpeed || 1
+      const clampedRate = clampPlaybackRate(rotationSpeed)
+      videoPlayer.value.playbackRate = clampedRate
+    } catch (error) {
+      // Ігноруємо помилки
+    }
   }
 }
 
@@ -493,16 +525,23 @@ watch(() => props.isCardOpen, (isOpen) => {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) translateZ(0);
   border-radius: 50%;
   object-fit: cover;
   object-position: center;
   pointer-events: none;
   display: block;
-  /* Оптимізація продуктивності */
+  /* Оптимізація продуктивності для плавного відтворення */
   will-change: transform;
   /* Спрощена transition */
   transition: transform 0.3s ease;
+  /* Примусова апаратна акселерація для покращення продуктивності відео */
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  /* Оптимізація рендерингу відео */
+  image-rendering: auto;
+  /* Використання GPU для відео */
+  contain: layout style paint;
 }
 
 /* Для Сатурна дозволяємо відео виходити за межі wrapper для кілець */
