@@ -15,6 +15,19 @@
       <span class="wave wave-3"></span>
     </span>
   </button>
+  
+  <!-- Маленький бейдж у правому верхньому кутку (якщо користувач має бейдж) -->
+  <BadgeIcon 
+    v-if="hasBadge" 
+    @click="showBadgeModal"
+  />
+  
+  <!-- Модальне вікно з бейджем на весь екран -->
+  <BadgeAchievement 
+    :is-visible="showBadge" 
+    @close="closeBadgeModal"
+  />
+  
   <div class="app-content">
     <RouterView />
   </div>
@@ -24,17 +37,58 @@
 import { ref, provide, onMounted } from 'vue'
 import { RouterView } from 'vue-router'
 import StarryBackground from './components/StarryBackground.vue'
+import BadgeIcon from './components/BadgeIcon.vue'
+import BadgeAchievement from './components/BadgeAchievement.vue'
 import { playBackground, stopBackground, getBackgroundState, playHover, playClick } from './utils/sounds.js'
+import { checkUserForBadge, isBadgeShown, markBadgeAsShown } from './utils/logic.js'
 
 const starsReady = ref(false)
 const isMusicPlaying = ref(false)
+const showBadge = ref(false)
+const hasBadge = ref(false)
 
 function onStarsReady() {
   starsReady.value = true
 }
 
+// Перевірка, чи користувач має бейдж
+function checkBadgeStatus() {
+  hasBadge.value = checkUserForBadge()
+}
+
+// Обробка події отримання бейджа
+function handleBadgeEarned() {
+  checkBadgeStatus()
+  // Показуємо бейдж на весь екран тільки якщо він ще не був показаний
+  if (hasBadge.value && !isBadgeShown()) {
+    showBadge.value = true
+    markBadgeAsShown()
+    // Блокуємо скрол під час показу бейджа
+    document.body.style.overflow = 'hidden'
+  }
+}
+
+// Показати модальне вікно з бейджем (коли користувач клікає на маленький бейдж)
+function showBadgeModal() {
+  if (hasBadge.value) {
+    showBadge.value = true
+    document.body.style.overflow = 'hidden'
+  }
+}
+
+// Закрити модальне вікно з бейджем
+function closeBadgeModal() {
+  showBadge.value = false
+  // Повертаємо скрол після закриття
+  setTimeout(() => {
+    document.body.style.overflow = 'auto'
+  }, 300)
+}
+
 // Надаємо starsReady через provide для доступу в дочірніх компонентах
 provide('starsReady', starsReady)
+// Надаємо функцію обробки отримання бейджа
+provide('handleBadgeEarned', handleBadgeEarned)
 
 async function startAudio() {
   try {
@@ -68,6 +122,9 @@ async function toggleMusic() {
 
 // Намагаємося запустити музику автоматично при завантаженні сторінки
 onMounted(() => {
+  // Перевіряємо статус бейджа при завантаженні
+  checkBadgeStatus()
+  
   // Спочатку намагаємося запустити музику автоматично
   // (невелика затримка дає час на завантаження сторінки)
   setTimeout(() => {
@@ -84,6 +141,16 @@ onMounted(() => {
   document.addEventListener('click', handleFirstInteraction, { once: true })
   document.addEventListener('touchstart', handleFirstInteraction, { once: true })
   document.addEventListener('keydown', handleFirstInteraction, { once: true })
+  
+  // Перевіряємо статус бейджа періодично (на випадок змін у localStorage)
+  const badgeCheckInterval = setInterval(() => {
+    checkBadgeStatus()
+  }, 1000)
+  
+  // Очищаємо інтервал при розмонтуванні
+  return () => {
+    clearInterval(badgeCheckInterval)
+  }
 })
 </script>
 

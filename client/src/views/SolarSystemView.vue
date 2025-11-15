@@ -24,6 +24,7 @@
       :planet-id="selectedPlanetId"
       :is-visible="isCardVisible"
       @close="closePlanetCard"
+      @badge-earned="handleBadgeEarned"
     />
   </div>
 </template>
@@ -34,10 +35,13 @@ import Planet from '../../src/components/Planet.vue'
 import PlanetCard from '../../src/components/PlanetCard.vue'
 import { planets } from '../data/planets'
 import { galaxyConfig } from '../utils/data.js'
+import { markPlanetAsVisited } from '../utils/logic.js'
 import {useWindowSize } from '@vueuse/core'
 
 // Отримуємо starsReady через inject
 const starsReady = inject('starsReady', ref(false))
+// Отримуємо функцію обробки отримання бейджа
+const handleBadgeEarned = inject('handleBadgeEarned', () => {})
 
 const planetData = ref(planets)
 
@@ -104,6 +108,9 @@ async function openPlanetCard(planetId) {
   // Встановлюємо дані планети
   selectedPlanetId.value = planetId
   selectedPlanetData.value = planetInfo
+  
+  // Позначаємо планету як відвідану
+  markPlanetAsVisited(planetId)
   
   // Чекаємо, поки Vue оновить DOM
   await nextTick()

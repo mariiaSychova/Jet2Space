@@ -194,7 +194,7 @@
 <script setup>
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { getCachedStars, getCachedAnimatedStars } from '../utils/starBackground.js'
-import { getRandomQuestionFromQuiz, validateQuizResponse, updateUserProgress } from '../utils/logic.js'
+import { getRandomQuestionFromQuiz, validateQuizResponse, updateUserProgress, checkUserForBadge } from '../utils/logic.js'
 import { playHover, playClick } from '../utils/sounds'
 
 const props = defineProps({
@@ -286,7 +286,7 @@ const constellationLines = ref([
   { x1: 30, y1: 65, x2: 25, y2: 75 },
 ])
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'badge-earned'])
 
 const hasImage = computed(() => {
   return props.planetData.image && props.planetData.image !== '/images/...'
@@ -336,6 +336,13 @@ function selectAnswer(answerKey) {
   // Оновлюємо прогрес користувача, якщо відповідь правильна
   if (isCorrect.value && props.planetId) {
     updateUserProgress(props.planetId)
+    // Перевіряємо, чи користувач заслужив бейдж
+    if (checkUserForBadge()) {
+      // Невелика затримка перед показом бейджа для кращого UX
+      setTimeout(() => {
+        emit('badge-earned')
+      }, 500)
+    }
   }
 }
 
