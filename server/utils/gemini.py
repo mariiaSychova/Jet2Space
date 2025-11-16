@@ -17,7 +17,10 @@ except Exception as e:
 SYSTEM_PROMPT = """
 You are an assistant that creates multiple-choice questions.
 The user will provide a planet's description and a list of specific facts.
-You must generate one (1) multiple-choice question that is based *specifically* on one or more of the provided facts.
+You must generate one (1) multiple-choice question that is based EITHER on:
+- the planet's description ONLY, OR
+- one of the provided facts ONLY.
+Randomly choose the source each time you answer (about 50% of questions from the description and 50% from the facts). Do not mix the description and the facts in the same question.
 You MUST respond ONLY with a single JSON object in the following exact format:
 {
   "question": "The question text here",
