@@ -328,6 +328,15 @@ function startRocketFlight(targetPlanetId) {
         angle = -180 - angle
       }
 
+      // Додатково обмежуємо максимальний нахил, щоб ракета
+      // ніколи не "тикалась носом" занадто вниз навіть у піку траєкторії.
+      const MAX_TILT_ANGLE = 40 // градусів; піковий нахил ~40°
+      if (angle > MAX_TILT_ANGLE) {
+        angle = MAX_TILT_ANGLE
+      } else if (angle < -MAX_TILT_ANGLE) {
+        angle = -MAX_TILT_ANGLE
+      }
+
       // На початку траєкторії нахил повільно з'являється,
       // наприкінці — поступово зникає, щоб ракета вирівнялася.
       const appearEnd = 0.25
@@ -367,7 +376,7 @@ function startRocketFlight(targetPlanetId) {
 function startRocketLanding(targetPlanetId, hoverPos, finalPos) {
   isRocketLanding.value = true
 
-  const hoverDuration = 800  // мс — час зависання і вирівнювання (повільніше)
+  const hoverDuration = 500  // мс — час зависання і вирівнювання (трохи коротший)
   const landingDuration = 1200 // мс — повільний спуск
 
   const startAngle = rocketAngle.value
