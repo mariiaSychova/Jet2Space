@@ -272,7 +272,7 @@ function startRocketFlight(targetPlanetId) {
     y: targetPos.y - hoverOffset
   }
 
-  const duration = 2000 // тривалість основного польоту
+  const duration = 5000 // тривалість основного польоту (дуже повільний політ)
   const distance = Math.hypot(flightTarget.x - startPos.x, flightTarget.y - startPos.y)
 
   // Висота параболи:
@@ -295,8 +295,12 @@ function startRocketFlight(targetPlanetId) {
     if (t < 0) t = 0
     if (t > 1) t = 1
 
-    // Легке ease-in-out, щоб старт/приземлення були плавні
-    const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t
+    // Реалістичний профіль швидкості: спочатку плавне прискорення, потім
+    // більш рівномірний рух і наприкінці плавне гальмування.
+    // Використовуємо easeInOutCubic.
+    const eased = t < 0.5
+      ? 4 * t * t * t
+      : 1 - Math.pow(-2 * t + 2, 3) / 2
 
     const x = startPos.x + (flightTarget.x - startPos.x) * eased
 
@@ -312,7 +316,32 @@ function startRocketFlight(targetPlanetId) {
     const dx = x - prevX
     const dy = y - prevY
     if (Math.abs(dx) > 0.001 || Math.abs(dy) > 0.001) {
-      rocketAngle.value = Math.atan2(dy, dx) * (180 / Math.PI) + 90 // +90, щоб ракета "дивилась" по траєкторії
+      // Базовий кут уздовж траєкторії
+      let angle = Math.atan2(dy, dx) * (180 / Math.PI) + 90
+
+      // Нормалізуємо до [-180, 180]
+      while (angle > 180) angle -= 360
+      while (angle < -180) angle += 360
+
+      // Віддзеркалюємо навколо вертикалі, щоб ракета не "дивилась назад",
+      // а лише злегка нахилялась вперед/назад у межах [-90, 90].
+      if (angle > 90) {
+        angle = 180 - angle
+      } else if (angle < -90) {
+        angle = -180 - angle
+      }
+
+      // Починаємо вирівнювання значно раніше (після ~60% шляху)
+      // і поступово "гасимо" кут до 0°, симетрично для польоту вправо і вліво.
+      const fadeStart = 0.6
+      const fadeEnd = 1.0
+      let fade = 1
+      if (eased >= fadeStart) {
+        const tFade = Math.min(1, Math.max(0, (eased - fadeStart) / (fadeEnd - fadeStart)))
+        fade = 1 - tFade // 1 -> 0 між 60% і 100% шляху
+      }
+
+      rocketAngle.value = angle * fade
     }
     prevX = x
     prevY = y
@@ -333,8 +362,8 @@ function startRocketFlight(targetPlanetId) {
 function startRocketLanding(targetPlanetId, hoverPos, finalPos) {
   isRocketLanding.value = true
 
-  const hoverDuration = 400  // мс — час зависання і вирівнювання
-  const landingDuration = 600 // мс — повільний спуск
+  const hoverDuration = 800  // мс — час зависання і вирівнювання (повільніше)
+  const landingDuration = 1200 // мс — повільний спуск
 
   const startAngle = rocketAngle.value
   const startTime = performance.now()
@@ -380,8 +409,11 @@ function startRocketLanding(targetPlanetId, hoverPos, finalPos) {
     rocketY.value = finalPos.y
     rocketAngle.value = 0
 
-    // Після завершення посадки відкриваємо картку планети
-    openPlanetCard(targetPlanetId)
+    // Після завершення посадки з невеликою затримкою відкриваємо картку планети,
+    // щоб глядач встиг «побачити посадку».
+    setTimeout(() => {
+      openPlanetCard(targetPlanetId)
+    }, 300)
   }
 
   rocketAnimationFrameId = requestAnimationFrame(animateLanding)
