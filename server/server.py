@@ -1,7 +1,7 @@
 import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from utils.ai import get_planet_question
+from utils.gemini import get_planet_question
 
 app = Flask(__name__)
 CORS(app) 
@@ -32,3 +32,4 @@ def generate_question():
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+

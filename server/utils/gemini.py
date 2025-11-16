@@ -1,19 +1,18 @@
 import os
 import json
-from openai import OpenAI
+import google.generativeai as genai
 from dotenv import load_dotenv
 
 load_dotenv()
 
 try:
-    client = OpenAI(
-        api_key=os.environ.get("OPENAI_API_KEY")
-    )
-    if not client.api_key:
-        raise ValueError("OPENAI_API_KEY not found. Please set it in your .env file.")
+    api_key = os.environ.get("GOOGLE_API_KEY")
+    if not api_key:
+        raise ValueError("GOOGLE_API_KEY not found. Please set it in your .env file.")
+    genai.configure(api_key=api_key)
+    print("Gemini client configured successfully.")
 except Exception as e:
-    print(f"Error initializing OpenAI client: {e}")
-    client = None
+    print(f"Error initializing Gemini client: {e}")
 
 SYSTEM_PROMPT = """
 You are an assistant that creates multiple-choice questions.
@@ -35,7 +34,6 @@ Do not include any other text, explanations, or markdown formatting outside of t
 MAX_RETRIES = 3
 
 def _validate_question_format(data: dict) -> bool:
-
     if not all(key in data for key in ["question", "options", "answer"]):
         print("Validation Error: Missing top-level keys")
         return False
@@ -43,7 +41,7 @@ def _validate_question_format(data: dict) -> bool:
     if not isinstance(data["question"], str):
         print("Validation Error: 'question' is not a string")
         return False
-    
+        
     if not isinstance(data["options"], dict):
         print("Validation Error: 'options' is not a dictionary")
         return False
@@ -51,16 +49,16 @@ def _validate_question_format(data: dict) -> bool:
     if not all(key in data["options"] for key in ["a", "b", "c"]):
         print("Validation Error: Missing 'a', 'b', or 'c' in options")
         return False
-    
+        
     if not isinstance(data["answer"], str) or data["answer"] not in ["a", "b", "c"]:
         print("Validation Error: 'answer' is not a valid key (a, b, or c)")
         return False
-    
+        
     return True
 
 def get_planet_question(description: str, facts: list[str]):
-    if not client:
-        raise Exception("OpenAI client is not initialized. Check API key.")
+    if not os.environ.get("GOOGLE_API_KEY"):
+         raise Exception("Gemini client is not initialized. Check API key.")
 
     facts_list_str = "\n".join([f"- {fact}" for fact in facts])
 
@@ -71,22 +69,27 @@ def get_planet_question(description: str, facts: list[str]):
     Facts to base the question on:
     {facts_list_str}
     """
+    
+    model = genai.GenerativeModel(
+        'gemini-2.5-flash',
+        system_instruction=SYSTEM_PROMPT
+    )
+    
+    generation_config = genai.GenerationConfig(
+        response_mime_type="application/json",
+        temperature=0.7
+    )
 
     for attempt in range(MAX_RETRIES):
-        print(f"OpenAI API call attempt {attempt + 1} of {MAX_RETRIES}...")
+        print(f"Gemini API call attempt {attempt + 1} of {MAX_RETRIES}...")
 
         try:
-            completion = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": user_prompt}
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.7
+            response = model.generate_content(
+                user_prompt,
+                generation_config=generation_config
             )
 
-            response_content = completion.choices[0].message.content
+            response_content = response.text
             question_data = json.loads(response_content)
             
             if _validate_question_format(question_data):
@@ -99,6 +102,8 @@ def get_planet_question(description: str, facts: list[str]):
             print(f"JSONDecodeError on attempt {attempt + 1}: AI did not return valid JSON.")
         except Exception as e:
             print(f"An unexpected error occurred during API call: {e}")
+            if hasattr(e, 'response') and hasattr(e.response, 'prompt_feedback'):
+                print(f"Prompt Feedback: {e.response.prompt_feedback}")
             break 
     
-    raise Exception(f"Failed to get a valid question from OpenAI after {MAX_RETRIES} attempts.")
+    raise Exception(f"Failed to get a valid question from Gemini after {MAX_RETRIES} attempts.")
