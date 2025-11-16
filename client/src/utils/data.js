@@ -1,3 +1,13 @@
+import sunImg from '../assets/images/sun.jpg'
+import mercuryImg from '../assets/images/mercury.jpg'
+import venusImg from '../assets/images/venus.jpg'
+import earthImg from '../assets/images/earth.jpg'
+import marsImg from '../assets/images/mars.jpg'
+import jupiterImg from '../assets/images/jupiter.jpg'
+import saturnImg from '../assets/images/saturn.jpg'
+import uranusImg from '../assets/images/uranus.jpg'
+import neptuneImg from '../assets/images/neptune.jpg'
+
 export const galaxyConfig = {
   sun: {
     name: "Сонце",
@@ -7,16 +17,16 @@ export const galaxyConfig = {
     facts: [
       "Сонце випромінює енергію, якої вистачило б, щоб забезпечити світлом і теплом всі планети Сонячної системи протягом мільярдів років.",
     ],
-    image: "/images/sun.jpg",
+    image: sunImg,
     sound: "/sounds/...",
-    video: "https://www.youtube.com/embed/2HoTK_Gqi2Q?si=dnCq7m74puuhBnib", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/embed/2HoTK_Gqi2Q?si=dnCq7m74puuhBnib", // Сонце - NASA відео
     quiz: [
       {
-        question: "Question 1",
+        question: "Яка температура на поверхні Сонця?",
         options: {
-          a: "Option 1",
-          b: "Option 2",
-          c: "Option 3",
+          a: "Близько 5 500°C",
+          b: "Близько 10 000°C",
+          c: "Близько 1 000°C",
         },
         answer: "a",
       },
@@ -29,16 +39,16 @@ export const galaxyConfig = {
     facts: [
       "На Меркурії є ділянки, які постійно перебувають у тіні, навіть на екваторі, де температура може падати до -170°C, і там виявлено крижані відкладення води.",
     ],
-    image: "/images/mercury.jpg",
+    image: mercuryImg,
     sound: "/sounds/...",
-    video: "https://www.youtube.com/embed/0KBjnNuhRHs?si=Z1ITrTJIkSVwCdVO", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/embed/0KBjnNuhRHs?si=Z1ITrTJIkSVwCdVO", // Меркурій
     quiz: [
       {
-        question: "Question 1",
+        question: "Яка найближча планета до Сонця?",
         options: {
-          a: "Option 1",
-          b: "Option 2",
-          c: "Option 3",
+          a: "Венера",
+          b: "Меркурій",
+          c: "Земля",
         },
         answer: "b",
       },
@@ -52,18 +62,18 @@ export const galaxyConfig = {
     facts: [
       "Венеру називають «гарячою сестрою Землі», бо її атмосфера створює постійний парниковий ефект, через який планета стала справжньою пекельною печею.",
     ],
-    image: "/images/venus.jpg",
+    image: venusImg,
     sound: "/sounds/...",
-    video: "https://www.youtube.com/embed/BvXa1n9fjow?si=ly5vfRydhYhjvq7D", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/embed/BvXa1n9fjow?si=ly5vfRydhYhjvq7D", // Венера
     quiz: [
       {
-        question: "Question 1",
+        question: "Чому Венеру називають «гарячою сестрою Землі»?",
         options: {
-          a: "Option 1",
-          b: "Option 2",
-          c: "Option 3",
+          a: "Тому що вона найближча до Землі",
+          b: "Тому що вона такого ж розміру як Земля",
+          c: "Тому що парниковий ефект робить її дуже гарячою",
         },
-        answer: "с",
+        answer: "c",
       },
     ],
   },
@@ -75,16 +85,16 @@ export const galaxyConfig = {
     facts: [
       "Хоча Земля здається стабільною, її ядро обертається трохи швидше за поверхню, що створює магнітне поле та впливає на полярні сяйва.",
     ],
-    image: "/images/earth.jpg",
+    image: earthImg,
     sound: "/sounds/...",
-    video: "https://www.youtube.com/embed/HCDVN7DCzYE?si=tTszM52k63HeQTrf", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/embed/HCDVN7DCzYE?si=tTszM52k63HeQTrf", // Земля
     quiz: [
       {
-        question: "Question 1",
+        question: "Скільки відсотків поверхні Землі покрито водою?",
         options: {
-          a: "Option 1",
-          b: "Option 2",
-          c: "Option 3",
+          a: "71%",
+          b: "50%",
+          c: "90%",
         },
         answer: "a",
       },
@@ -97,16 +107,16 @@ export const galaxyConfig = {
     facts: [
       "Марс має сезонні пилові бурі, які можуть вкривати всю планету на місяці, роблячи її невидимою навіть для великих телескопів.",
     ],
-    image: "/images/mars.jpg",
+    image: marsImg,
     sound: "/sounds/...",
-    video: "https://www.youtube.com/embed/E-PuUs25rJA?si=2o7d3LipGodP-oD5", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/embed/E-PuUs25rJA?si=2o7d3LipGodP-oD5", // Марс
     quiz: [
       {
-        question: "Question 1",
+        question: "Яка найвища гора в Сонячній системі знаходиться на Марсі?",
         options: {
-          a: "Option 1",
-          b: "Option 2",
-          c: "Option 3",
+          a: "Еверест",
+          b: "Олімп",
+          c: "Кіліманджаро",
         },
         answer: "b",
       },
@@ -119,16 +129,16 @@ export const galaxyConfig = {
     facts: [
       "Юпітер настільки великий, що його гравітація впливає на комети та астероїди, відхиляючи їх від траєкторій і часто захищаючи внутрішні планети, включно з Землею, від зіткнень.",
     ],
-    image: "/images/jupiter.jpg",
+    image: jupiterImg,
     sound: "/sounds/...",
-    video: "https://www.youtube.com/embed/PtkqwslbLY8?si=jbL2jx0NZ7WGZ-AT", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/embed/PtkqwslbLY8?si=jbL2jx0NZ7WGZ-AT", // Юпітер
     quiz: [
       {
-        question: "Question 1",
+        question: "Яка планета є найбільшою в Сонячній системі?",
         options: {
-          a: "Option 1",
-          b: "Option 2",
-          c: "Option 3",
+          a: "Сатурн",
+          b: "Нептун",
+          c: "Юпітер",
         },
         answer: "c",
       },
@@ -136,21 +146,21 @@ export const galaxyConfig = {
   },
   saturn: {
     name: "Сатурн",
-    description: `Сатурн — газовий гігант, відомий своїми величними кільцями, що складаються з льодових і кам’яних частинок. \
+    description: `Сатурн — газовий гігант, відомий своїми величними кільцями, що складаються з льодових і кам'яних частинок. \
     Планета має понад 80 супутників, включно з Титаном, який має густу атмосферу. Швидкість обертання Сатурна є найвищою серед планет Сонячної системи.`,
     facts: [
       "Хоча Сатурн виглядає як «пухка» планета через свої кільця, він такий легкий, що якби його помістити у величезну водойму, він би плавав.",
     ],
-    image: "/images/saturn.jpg",
+    image: saturnImg,
     sound: "/sounds/...",
-    video: "https://www.youtube.com/embed/epZdZaEQhS0?si=JbnC5R0LIaO83Xbw", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/embed/epZdZaEQhS0?si=JbnC5R0LIaO83Xbw", // Сатурн
     quiz: [
       {
-        question: "Question 1",
+        question: "З чого складаються кільця Сатурна?",
         options: {
-          a: "Option 1",
-          b: "Option 2",
-          c: "Option 3",
+          a: "З льодових і кам'яних частинок",
+          b: "З газів",
+          c: "З металу",
         },
         answer: "a",
       },
@@ -164,16 +174,16 @@ export const galaxyConfig = {
     facts: [
       "Через нахил осі полюси Урану на десятки років опиняються у темряві або постійно освітлені, створюючи дивні космічні «нічні й денні цикли».",
     ],
-    image: "/images/uranus.jpg",
+    image: uranusImg,
     sound: "/sounds/...",
-    video: "https://www.youtube.com/embed/m4NXbFOiOGk?si=b2AgqX3KqMQ8KF6W", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/embed/m4NXbFOiOGk?si=b2AgqX3KqMQ8KF6W", // Уран
     quiz: [
       {
-        question: "Question 1",
+        question: "Чому Уран має блакитний відтінок?",
         options: {
-          a: "Option 1",
-          b: "Option 2",
-          c: "Option 3",
+          a: "Через воду на поверхні",
+          b: "Через метан в атмосфері",
+          c: "Через відбивання світла",
         },
         answer: "b",
       },
@@ -187,16 +197,16 @@ export const galaxyConfig = {
     facts: [
       "На Нептуні вітер рухається швидше, ніж будь-які урагани на Землі, створюючи справжні «космічні вихори.",
     ],
-    image: "/images/neptune.jpg",
+    image: neptuneImg,
     sound: "/sounds/...",
-    video: "https://www.youtube.com/embed/NStn7zZKXfE?si=wuREsFQ1Ru44jRMq", // Url from Google Drive/AWS
+    video: "https://www.youtube.com/embed/NStn7zZKXfE?si=wuREsFQ1Ru44jRMq", // Нептун
     quiz: [
       {
-        question: "Question 1",
+        question: "Яка швидкість вітрів на Нептуні може сягати?",
         options: {
-          a: "Option 1",
-          b: "Option 2",
-          c: "Option 3",
+          a: "500 км/год",
+          b: "1 000 км/год",
+          c: "2 000 км/год",
         },
         answer: "c",
       },

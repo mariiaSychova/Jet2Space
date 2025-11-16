@@ -1,10 +1,13 @@
 <template>
   <div class="starry-background">
-    <!-- Stars -->
+    <!-- Статичні зірки через CSS градієнти (дуже швидко) -->
+    <div class="stars-layer" :style="{ backgroundImage: starPattern }"></div>
+    
+    <!-- Тільки невелика кількість анімованих зірок для ефекту -->
     <div 
-      v-for="star in stars" 
+      v-for="star in animatedStars" 
       :key="'star-' + star.id"
-      class="star"
+      class="animated-star"
       :style="{
         left: star.x + '%',
         top: star.y + '%',
@@ -15,7 +18,7 @@
       }"
     ></div>
     
-    <!-- Nebulae (туманності) -->
+    <!-- Зменшена кількість туманностей (2 замість 6) -->
     <div 
       v-for="nebula in nebulae" 
       :key="'nebula-' + nebula.id"
@@ -30,7 +33,7 @@
       }"
     ></div>
     
-    <!-- Comets (комети) -->
+    <!-- Менше комет (2 замість 4) -->
     <div 
       v-for="comet in comets" 
       :key="'comet-' + comet.id"
@@ -49,7 +52,7 @@
       <div class="comet-tail"></div>
     </div>
     
-    <!-- Asteroids (астероїди) -->
+    <!-- Менше астероїдів (4 замість 12) -->
     <div 
       v-for="asteroid in asteroids" 
       :key="'asteroid-' + asteroid.id"
@@ -67,7 +70,7 @@
       }"
     ></div>
     
-    <!-- Distant planets (далекі планети) -->
+    <!-- Менше далеких планет (1 замість 3) -->
     <div 
       v-for="planet in distantPlanets" 
       :key="'planet-' + planet.id"
@@ -99,10 +102,18 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
+import { getCachedStars, getCachedAnimatedStars } from '../utils/starBackground.js'
 
-// Генерація зірок для фону
-const stars = ref([])
+// Emit події про готовність рендерингу
+const emit = defineEmits(['stars-ready'])
+
+// Використовуємо кешовані зірки з градієнтами (дуже швидко)
+const starPattern = computed(() => getCachedStars())
+
+// Тільки невелика кількість анімованих зірок (20 замість 250)
+const animatedStars = ref(getCachedAnimatedStars())
+
 const nebulae = ref([])
 const comets = ref([])
 const asteroids = ref([])
@@ -151,100 +162,120 @@ const constellationLines = ref([
   { x1: 55, y1: 75, x2: 58, y2: 80 },
 ])
 
-// Функція для генерації випадкової зірки
-function generateStar(id) {
-  return {
-    id: id,
-    x: Math.random() * 100,
-    y: Math.random() * 100,
-    size: Math.random() * 4 + 1, // 1-5px (більші зірки для кращої видимості)
-    delay: Math.random() * 5,
-    duration: Math.random() * 3 + 2,
-  }
-}
-
-// Функція для генерації туманності
+// Функція для генерації туманності (зменшена кількість)
 function generateNebula(id) {
+  // Використовуємо детерміністичні позиції для кешування
+  const positions = [
+    { x: 20, y: 30 },
+    { x: 70, y: 60 },
+  ]
+  const pos = positions[id % positions.length]
   return {
     id: id,
-    x: Math.random() * 80,
-    y: Math.random() * 80,
-    width: Math.random() * 300 + 150, // 150-450px
-    height: Math.random() * 300 + 150,
-    duration: Math.random() * 20 + 30, // 30-50s
-    delay: Math.random() * 10,
+    x: pos.x,
+    y: pos.y,
+    width: 400,
+    height: 400,
+    duration: 40,
+    delay: id * 5,
   }
 }
 
-// Функція для генерації комети
+// Функція для генерації комети (зменшена кількість)
 function generateComet(id) {
+  const comets = [
+    { startY: 20, angle: 30 },
+    { startY: 80, angle: 45 },
+  ]
+  const comet = comets[id % comets.length]
   const startX = -5
-  const startY = Math.random() * 100
-  const angle = Math.random() * 60 + 15 // 15-75 градусів
   const distance = 120
-  const endX = startX + Math.cos(angle * Math.PI / 180) * distance
-  const endY = startY + Math.sin(angle * Math.PI / 180) * distance
+  const endX = startX + Math.cos(comet.angle * Math.PI / 180) * distance
+  const endY = comet.startY + Math.sin(comet.angle * Math.PI / 180) * distance
   
   return {
     id: id,
     startX: startX,
-    startY: startY,
+    startY: comet.startY,
     endX: endX,
     endY: endY,
-    angle: angle,
-    duration: Math.random() * 15 + 20, // 20-35s
-    delay: Math.random() * 30,
+    angle: comet.angle,
+    duration: 25,
+    delay: id * 15,
   }
 }
 
-// Функція для генерації астероїда
+// Функція для генерації астероїда (зменшена кількість)
 function generateAsteroid(id) {
-  const startX = Math.random() * 100
-  const startY = -5
-  const endX = Math.random() * 100
-  const endY = 105
-  
+  const positions = [
+    { startX: 10, endX: 90 },
+    { startX: 30, endX: 70 },
+    { startX: 50, endX: 20 },
+    { startX: 80, endX: 40 },
+  ]
+  const pos = positions[id % positions.length]
   return {
     id: id,
-    startX: startX,
-    startY: startY,
-    endX: endX,
-    endY: endY,
-    size: Math.random() * 4 + 2, // 2-6px
-    rotation: Math.random() * 360,
-    duration: Math.random() * 10 + 15, // 15-25s
-    delay: Math.random() * 20,
+    startX: pos.startX,
+    startY: -5,
+    endX: pos.endX,
+    endY: 105,
+    size: 4,
+    rotation: id * 90,
+    duration: 20,
+    delay: id * 5,
   }
 }
 
-// Функція для генерації далекої планети
+// Функція для генерації далекої планети (зменшена кількість)
 function generateDistantPlanet(id) {
+  const positions = [
+    { x: 15, y: 25, size: 35 },
+  ]
+  const pos = positions[id % positions.length]
   return {
     id: id,
-    x: Math.random() * 90 + 5,
-    y: Math.random() * 90 + 5,
-    size: Math.random() * 30 + 20, // 20-50px
-    duration: Math.random() * 40 + 60, // 60-100s
-    delay: Math.random() * 20,
+    x: pos.x,
+    y: pos.y,
+    size: pos.size,
+    duration: 80,
+    delay: 0,
   }
 }
 
-// Генеруємо всі об'єкти при монтуванні
-onMounted(() => {
-  // Зірки
-  stars.value = Array.from({ length: 250 }, (_, i) => generateStar(i))
+// Генеруємо зменшену кількість об'єктів при монтуванні
+onMounted(async () => {
+  // Туманності (2 замість 6)
+  nebulae.value = Array.from({ length: 2 }, (_, i) => generateNebula(i))
   
-  // Туманності (5-8 туманностей)
-  nebulae.value = Array.from({ length: 6 }, (_, i) => generateNebula(i))
+  // Комети (2 замість 4)
+  comets.value = Array.from({ length: 2 }, (_, i) => generateComet(i))
   
-  // Комети (3-5 комет)
-  comets.value = Array.from({ length: 4 }, (_, i) => generateComet(i))
+  // Астероїди (4 замість 12)
+  asteroids.value = Array.from({ length: 4 }, (_, i) => generateAsteroid(i))
   
-  // Астероїди (10-15 астероїдів)
-  asteroids.value = Array.from({ length: 12 }, (_, i) => generateAsteroid(i))
+  // Далекі планети (1 замість 3)
+  distantPlanets.value = Array.from({ length: 1 }, (_, i) => generateDistantPlanet(i))
   
-  // Далекі планети (2-4 планети)
-  distantPlanets.value = Array.from({ length: 3 }, (_, i) => generateDistantPlanet(i))
+  // Чекаємо поки DOM оновиться і всі елементи будуть відрендерені
+  await nextTick()
+  
+  // Використовуємо подвійний requestAnimationFrame для гарантії завершення рендерингу
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      // Дочекаємося початку анімації сузір'й (перші лінії починаються відразу)
+      // Але даємо час на те, щоб всі елементи відрендерились і CSS застосувався
+      // Обчислюємо час до появи останньої лінії сузір'й (не завершення, а початку)
+      const maxLineDelay = (constellationLines.value.length - 1) * 0.15
+      // Дочекаємося, поки остання лінія почне малюватися, плюс невеликий запас
+      // Це забезпечить, що всі сузір'я вже почали анімуватися
+      const waitTime = (maxLineDelay + 1) * 1000 // +1 секунда запасу
+      
+      setTimeout(() => {
+        emit('stars-ready')
+      }, Math.min(waitTime, 3000)) // Максимум 3 секунди
+    })
+  })
 })
 </script>
 
@@ -264,7 +295,23 @@ onMounted(() => {
   background-attachment: fixed;
 }
 
-.star {
+/* Статичні зірки через CSS градієнти (дуже швидко, без DOM елементів) */
+.stars-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  background-size: 100% 100%;
+  opacity: 0.8;
+  will-change: opacity;
+  pointer-events: none;
+}
+
+/* Анімовані зірки (тільки невелика кількість для ефекту) */
+.animated-star {
   position: absolute;
   background: white;
   border-radius: 50%;
@@ -274,21 +321,13 @@ onMounted(() => {
     0 0 9px rgba(150, 180, 255, 0.6),
     0 0 12px rgba(100, 150, 255, 0.4);
   animation: twinkleStar infinite ease-in-out;
-  opacity: 0.7;
+  opacity: 0.9;
   transform-origin: center;
+  will-change: transform, opacity;
 }
 
-/* Більші зірки мають інтенсивніше світіння */
-.star:nth-child(4n) {
-  box-shadow: 
-    0 0 3px rgba(255, 255, 255, 1),
-    0 0 6px rgba(255, 255, 255, 0.8),
-    0 0 9px rgba(150, 180, 255, 0.6),
-    0 0 12px rgba(100, 150, 255, 0.4);
-}
-
-/* Деякі зірки мають тепліший відтінок */
-.star:nth-child(7n) {
+/* Різні відтінки для анімованих зірок */
+.animated-star:nth-child(3n) {
   box-shadow: 
     0 0 2px rgba(255, 220, 150, 0.9),
     0 0 4px rgba(255, 200, 100, 0.7),
@@ -296,8 +335,7 @@ onMounted(() => {
   background: rgba(255, 240, 200, 0.9);
 }
 
-/* Деякі зірки мають блакитний відтінок */
-.star:nth-child(11n) {
+.animated-star:nth-child(5n) {
   box-shadow: 
     0 0 2px rgba(150, 200, 255, 0.9),
     0 0 4px rgba(100, 180, 255, 0.7),
@@ -343,31 +381,27 @@ onMounted(() => {
 
 @keyframes twinkleStar {
   0%, 100% {
-    opacity: 0.4;
-    transform: scale(0.8);
-  }
-  25% {
-    opacity: 0.7;
-    transform: scale(1);
+    opacity: 0.6;
+    transform: scale(0.9);
   }
   50% {
     opacity: 1;
-    transform: scale(1.2);
-  }
-  75% {
-    opacity: 0.8;
-    transform: scale(1.05);
+    transform: scale(1.1);
   }
 }
 
-/* Туманності */
+/* Туманності - оптимізовані */
 .nebula {
   position: absolute;
   border-radius: 50%;
-  opacity: 0.25;
-  filter: blur(50px);
-  animation: nebulaPulse infinite ease-in-out;
+  opacity: 0.2;
+  /* Використовуємо більш простий blur або зменшуємо його */
+  filter: blur(40px);
+  animation: nebulaPulse 20s ease-in-out infinite;
   z-index: 0;
+  will-change: opacity;
+  /* Використовуємо contain для ізоляції */
+  contain: layout style paint;
 }
 
 .nebula:nth-child(odd) {
@@ -392,16 +426,14 @@ onMounted(() => {
 
 @keyframes nebulaPulse {
   0%, 100% {
-    opacity: 0.2;
-    transform: scale(1);
+    opacity: 0.15;
   }
   50% {
-    opacity: 0.3;
-    transform: scale(1.1);
+    opacity: 0.25;
   }
 }
 
-/* Комети */
+/* Комети - оптимізовані */
 .comet {
   position: absolute;
   z-index: 1;
@@ -409,6 +441,8 @@ onMounted(() => {
   transform-origin: center;
   width: 0;
   height: 0;
+  will-change: transform;
+  contain: layout style paint;
 }
 
 .comet-head {
@@ -461,21 +495,17 @@ onMounted(() => {
   }
 }
 
-/* Астероїди */
+/* Астероїди - оптимізовані */
 .asteroid {
   position: absolute;
-  background: linear-gradient(
-    135deg,
-    rgba(150, 150, 150, 0.6) 0%,
-    rgba(100, 100, 100, 0.4) 50%,
-    rgba(80, 80, 80, 0.5) 100%
-  );
+  background: rgba(120, 120, 120, 0.5);
   border-radius: 30% 70% 40% 60% / 60% 40% 70% 30%;
-  box-shadow: 
-    0 0 3px rgba(200, 200, 200, 0.3),
-    inset -2px -2px 4px rgba(0, 0, 0, 0.3);
+  /* Спрощений box-shadow */
+  box-shadow: 0 0 2px rgba(200, 200, 200, 0.2);
   animation: asteroidMove infinite linear;
   z-index: 1;
+  will-change: transform;
+  contain: layout style paint;
 }
 
 @keyframes asteroidMove {
@@ -495,66 +525,39 @@ onMounted(() => {
   }
 }
 
-/* Далекі планети */
+/* Далекі планети - оптимізовані */
 .distant-planet {
   position: absolute;
   border-radius: 50%;
-  opacity: 0.3;
+  opacity: 0.25;
   filter: blur(2px);
-  animation: planetGlow infinite ease-in-out;
+  animation: planetGlow 15s ease-in-out infinite;
   z-index: 0;
+  will-change: opacity;
+  contain: layout style paint;
 }
 
 .distant-planet:nth-child(1) {
-  background: radial-gradient(
-    circle at 30% 30%,
-    rgba(100, 150, 200, 0.4) 0%,
-    rgba(80, 120, 180, 0.3) 50%,
-    rgba(60, 90, 150, 0.2) 100%
-  );
-  box-shadow: 
-    0 0 20px rgba(100, 150, 200, 0.3),
-    inset -10px -10px 20px rgba(0, 0, 0, 0.2);
-}
-
-.distant-planet:nth-child(2) {
-  background: radial-gradient(
-    circle at 40% 40%,
-    rgba(200, 150, 100, 0.35) 0%,
-    rgba(180, 120, 80, 0.25) 50%,
-    rgba(150, 100, 60, 0.15) 100%
-  );
-  box-shadow: 
-    0 0 25px rgba(200, 150, 100, 0.25),
-    inset -8px -8px 15px rgba(0, 0, 0, 0.2);
-}
-
-.distant-planet:nth-child(3) {
-  background: radial-gradient(
-    circle at 35% 35%,
-    rgba(150, 100, 200, 0.3) 0%,
-    rgba(120, 80, 180, 0.2) 50%,
-    rgba(100, 60, 150, 0.15) 100%
-  );
-  box-shadow: 
-    0 0 30px rgba(150, 100, 200, 0.2),
-    inset -12px -12px 25px rgba(0, 0, 0, 0.25);
+  background: radial-gradient(circle, rgba(100, 150, 200, 0.3), transparent);
+  box-shadow: 0 0 15px rgba(100, 150, 200, 0.2);
 }
 
 @keyframes planetGlow {
   0%, 100% {
-    opacity: 0.25;
-    transform: scale(1);
+    opacity: 0.2;
   }
   50% {
-    opacity: 0.35;
-    transform: scale(1.05);
+    opacity: 0.3;
   }
 }
 
 /* Адаптивність для менших екранів */
 @media (max-width: 768px) {
-  .star {
+  .stars-layer {
+    opacity: 0.7;
+  }
+  
+  .animated-star {
     box-shadow: 
       0 0 1px rgba(255, 255, 255, 0.9),
       0 0 3px rgba(255, 255, 255, 0.7),
@@ -595,7 +598,7 @@ onMounted(() => {
 
 /* Оптимізація продуктивності */
 @media (prefers-reduced-motion: reduce) {
-  .star,
+  .animated-star,
   .nebula,
   .comet,
   .asteroid,

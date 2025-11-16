@@ -7,12 +7,29 @@
       </div>
     </Transition>
 
-    <main class="planets-container" ref="containerRef" :class="{ 'loaded': isPageLoaded }" :style="{ transform: `scale(${scaleFactor})` }">
+    <main 
+      class="planets-container" 
+      ref="containerRef" 
+      :class="{ 'loaded': isPageLoaded, 'card-open': isCardVisible }" 
+      :style="{ transform: `scale(${scaleFactor})` }"
+      @mousedown="handleContainerClick"
+      @click.stop="handleContainerClick"
+    >
       <Planet
         v-for="planet in planetData" 
         :key="planet.id" 
         :planet="planet"
-        @planet-click="openPlanetCard"
+        :is-card-open="isCardVisible"
+        @planet-click="handlePlanetClick"
+      />
+      
+      <!-- Rocket Component -->
+      <Rocket
+        :x="rocketX"
+        :y="rocketY"
+        :angle="rocketAngle"
+        :is-visible="isRocketVisible"
+        :is-landing="isRocketLanding"
       />
     </main>
 
@@ -23,6 +40,7 @@
       :planet-id="selectedPlanetId"
       :is-visible="isCardVisible"
       @close="closePlanetCard"
+      @badge-earned="handleBadgeEarned"
     />
 
     <!-- Stella Component -->
@@ -31,13 +49,21 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted } from 'vue'
+import { ref, computed, nextTick, onMounted, watch, inject } from 'vue'
 import Planet from '../../src/components/Planet.vue'
 import PlanetCard from '../../src/components/PlanetCard.vue'
+import Rocket from '../../src/components/Rocket.vue'
 import Stella from '../../src/components/Stella.vue'
 import { planets } from '../data/planets'
 import { galaxyConfig } from '../utils/data.js'
+import { markPlanetAsVisited } from '../utils/logic.js'
 import { useWindowSize } from '@vueuse/core'
+import { playClick } from '../utils/sounds.js'
+
+// Отримуємо starsReady через inject (стан зіркового фону)
+const starsReady = inject('starsReady', ref(false))
+// Отримуємо функцію обробки отримання бейджа
+const handleBadgeEarned = inject('handleBadgeEarned', () => {})
 
 const planetData = ref(planets)
 
@@ -50,16 +76,28 @@ const isCardVisible = ref(false)
 const isPageLoaded = ref(false)
 const stella = ref(null)
 
-const planetGap = 40
+// Rocket state
+const isRocketVisible = ref(false)
+const rocketX = ref(0)
+const rocketY = ref(0)
+const rocketAngle = ref(0) // у градусах
+const currentRocketPlanetId = ref('earth') // id планети, на якій зараз ракета
+const isRocketFlying = ref(false)
+const isRocketLanding = ref(false)
+let rocketAnimationFrameId = null
+
+const planetGap = 60
 const idealContainerWidth = computed(() => {
-  // Обчислюємо реальну ширину кожної планети з урахуванням visualScale та horizontalMargin
-  // У Planet.vue wrapper має розмір size * Math.max(1, visualScale), тому враховуємо це
+  // Обчислюємо реальну ширину кожної планети з урахуванням visualScale та saturnMultiplier
+  // У Planet.vue wrapper має розмір size * Math.max(1, visualScale) * saturnMultiplier
   const planetsWidth = planets.reduce((sum, planet) => {
     const baseSize = planet.size || 200
     const visualScale = planet.visualScale || 1
-    // Wrapper в Planet.vue має розмір baseSize * Math.max(1, visualScale)
-    const wrapperSize = baseSize * Math.max(1, visualScale)
-    // horizontalMargin додається з обох боків через margin в containerStyle
+    // Для Сатурна враховуємо множник для кілець (той самий, що в Planet.vue)
+    const saturnMultiplier = planet.id === 'saturn' ? 1.15 : 1
+    // Wrapper в Planet.vue має розмір baseSize * Math.max(1, visualScale) * saturnMultiplier
+    const wrapperSize = baseSize * Math.max(1, visualScale) * saturnMultiplier
+    // horizontalMargin додається з обох боків через margin в containerStyle (якщо є)
     const marginWidth = (planet.horizontalMargin || 0) * 2
     // Повна ширина = розмір wrapper + марджини
     return sum + wrapperSize + marginWidth
@@ -86,23 +124,101 @@ const scaleFactor = computed(() => {
   return Math.max(calculatedScale, 0.2) // Мінімум 20% масштаб
 })
 
+// Отримуємо позицію центру планети відносно контейнера (враховуючи scale)
+function getPlanetPosition(planetId) {
+  if (!containerRef.value) return null
+  
+  const planetContainer = containerRef.value.querySelector(`[data-planet-id="${planetId}"]`)
+  if (!planetContainer) return null
+  
+  // Знаходимо planet-wrapper - це фактичний елемент планети
+  const planetWrapper = planetContainer.querySelector('.planet-wrapper')
+  if (!planetWrapper) {
+    // Якщо wrapper не знайдено, використовуємо сам container
+    const containerRect = containerRef.value.getBoundingClientRect()
+    const rect = planetContainer.getBoundingClientRect()
+    return {
+      x: rect.left + rect.width / 2 - containerRect.left,
+      y: rect.top + rect.height / 2 - containerRect.top
+    }
+  }
+  
+  // Отримуємо позиції відносно viewport
+  const wrapperRect = planetWrapper.getBoundingClientRect()
+  const containerRect = containerRef.value.getBoundingClientRect()
+  
+  // Обчислюємо центр wrapper відносно контейнера
+  // Оскільки обидва елементи всередині масштабованого контейнера,
+  // координати з getBoundingClientRect() вже враховують масштаб
+  const centerX = wrapperRect.left + wrapperRect.width / 2 - containerRect.left
+  const centerY = wrapperRect.top + wrapperRect.height / 2 - containerRect.top
+  
+  return { x: centerX, y: centerY }
+}
+
+// Позиція "якоря" ракети над планетою в логічних (немасштабованих) координатах
+function getRocketAnchorPosition(planetId) {
+  const planetPos = getPlanetPosition(planetId)
+  if (!planetPos) return null
+
+  const safeScale = scaleFactor.value || 1
+  return {
+    x: planetPos.x / safeScale,
+    y: (planetPos.y - 80) / safeScale // 80px вище центру планети
+  }
+}
+
+// Обробка кліку на контейнер для обчислення координат
+function handleContainerClick(event) {
+  // Зупиняємо подію, якщо клік був на планеті (вони обробляють свій клік)
+  if (event.target.closest('.planet-container')) {
+    return
+  }
+  
+  // Якщо картка відкрита, не обробляємо кліки
+  if (isCardVisible.value) {
+    return
+  }
+  
+  if (!containerRef.value) {
+    console.warn('⚠️ Container ref not available')
+    return
+  }
+  
+  const containerRect = containerRef.value.getBoundingClientRect()
+  
+  // Обчислюємо координати кліку відносно контейнера
+  const x = event.clientX - containerRect.left
+  const y = event.clientY - containerRect.top
+  
+  // Тут можна при потребі тимчасово логувати координати кліку
+}
+
+// Обробка кліку на планету
+function handlePlanetClick(planetId) {
+  // Під час польоту ігноруємо нові кліки
+  if (isRocketFlying.value) return
+  startRocketFlight(planetId)
+}
+
+// Відкриття картки планети (викликаємо тільки після завершення польоту)
 async function openPlanetCard(planetId) {
-  console.log('openPlanetCard called with planetId:', planetId)
+  playClick()
   
   // Знаходимо дані планети з galaxyConfig
   const planetInfo = galaxyConfig[planetId]
-  console.log('planetInfo found:', planetInfo)
-  console.log('Available keys in galaxyConfig:', Object.keys(galaxyConfig))
   
   if (!planetInfo) {
     console.error('Planet not found in galaxyConfig for ID:', planetId)
-    console.error('Expected one of:', Object.keys(galaxyConfig))
     return
   }
   
   // Встановлюємо дані планети
   selectedPlanetId.value = planetId
   selectedPlanetData.value = planetInfo
+  
+  // Позначаємо планету як відвідану
+  markPlanetAsVisited(planetId)
   
   // Чекаємо, поки Vue оновить DOM
   await nextTick()
@@ -117,10 +233,6 @@ async function openPlanetCard(planetId) {
   
   // Блокуємо скрол сторінки під час відкриття картки
   document.body.style.overflow = 'hidden'
-  
-  console.log('Card opened for planet:', planetInfo.name)
-  console.log('isCardVisible:', isCardVisible.value)
-  console.log('selectedPlanetData:', selectedPlanetData.value)
 }
 
 function closePlanetCard() {
@@ -133,58 +245,260 @@ function closePlanetCard() {
   }, 300) // Затримка для завершення анімації
 }
 
-// Завантаження сторінки з fade-in ефектом
-onMounted(() => {
-  // Мінімальна затримка для показу сторінки (щоб градієнт був видимий)
-  const minDelay = 600
-  // Максимальна затримка (якщо відео завантажуються повільно)
-  const maxDelay = 1500
-  const startTime = Date.now()
-  
-  // Перевіряємо готовність відео
-  const checkReady = () => {
-    const videos = document.querySelectorAll('.planet-video')
-    const elapsed = Date.now() - startTime
-    
-    if (videos.length === 0) {
-      // Якщо відео ще не відрендерилися, чекаємо мінімальну затримку
-      if (elapsed < minDelay) {
-        setTimeout(checkReady, 100)
-      } else {
-        isPageLoaded.value = true
+// Анімація польоту ракети між двома планетами з параболічною траєкторією
+function startRocketFlight(targetPlanetId) {
+  const startPos = getRocketAnchorPosition(currentRocketPlanetId.value)
+  const targetPos = getRocketAnchorPosition(targetPlanetId)
+
+  if (!startPos || !targetPos) return
+
+  // Якщо клікаємо на ту ж саму планету – просто відкриваємо картку без польоту
+  if (
+    currentRocketPlanetId.value === targetPlanetId &&
+    Math.abs(startPos.x - targetPos.x) < 0.5 &&
+    Math.abs(startPos.y - targetPos.y) < 0.5
+  ) {
+    openPlanetCard(targetPlanetId)
+    return
+  }
+
+  // Скасовуємо попередню анімацію, якщо була
+  if (rocketAnimationFrameId !== null) {
+    cancelAnimationFrame(rocketAnimationFrameId)
+    rocketAnimationFrameId = null
+  }
+
+  isRocketFlying.value = true
+  isRocketVisible.value = true
+  isRocketLanding.value = false
+
+  // Фінальна позиція (після посадки)
+  const finalPos = { ...targetPos }
+
+  // Позиція, де ракета закінчує основний політ і "зависає" перед посадкою
+  const hoverOffset = 40
+  const flightTarget = {
+    x: targetPos.x,
+    y: targetPos.y - hoverOffset
+  }
+
+  const duration = 5000 // тривалість польоту (дуже повільний політ)
+  const distance = Math.hypot(flightTarget.x - startPos.x, flightTarget.y - startPos.y)
+
+  // Висота параболи:
+  // - зростає з відстанню, щоб політ виглядав "вище" для далеких планет
+  // - але жорстко обмежена, щоб ракета ніколи не вилітала за межі екрана
+  const MIN_PARABOLA_HEIGHT = 60    // мінімальна "арка", щоб траєкторія не була пласкою
+  const MAX_PARABOLA_HEIGHT = 180   // максимум, щоб вершина завжди залишалась у кадрі
+  const dynamicHeight = distance * 0.18
+  const parabolaHeight = Math.min(
+    MAX_PARABOLA_HEIGHT,
+    Math.max(MIN_PARABOLA_HEIGHT, dynamicHeight)
+  )
+
+  const startTime = performance.now()
+  let prevX = startPos.x
+  let prevY = startPos.y
+
+  const animate = (time) => {
+    let t = (time - startTime) / duration
+    if (t < 0) t = 0
+    if (t > 1) t = 1
+
+    // Реалістичний профіль швидкості: спочатку плавне прискорення, потім
+    // більш рівномірний рух і наприкінці плавне гальмування (easeInOutCubic).
+    const eased = t < 0.5
+      ? 4 * t * t * t
+      : 1 - Math.pow(-2 * t + 2, 3) / 2
+
+    const x = startPos.x + (flightTarget.x - startPos.x) * eased
+    const baseY = startPos.y + (flightTarget.y - startPos.y) * eased
+    const parabolaOffset = -4 * parabolaHeight * eased * (1 - eased) // пікова точка = -parabolaHeight
+    const y = baseY + parabolaOffset
+
+    rocketX.value = x
+    rocketY.value = y
+
+    // Обчислюємо напрямок руху для нахилу ракети
+    const dx = x - prevX
+    const dy = y - prevY
+    if (Math.abs(dx) > 0.001 || Math.abs(dy) > 0.001) {
+      // Базовий кут уздовж траєкторії
+      let angle = Math.atan2(dy, dx) * (180 / Math.PI) + 90
+
+      // Нормалізуємо до [-180, 180]
+      while (angle > 180) angle -= 360
+      while (angle < -180) angle += 360
+
+      // Віддзеркалюємо навколо вертикалі, щоб ракета не "дивилась назад",
+      // а лише злегка нахилялась вперед/назад у межах [-90, 90].
+      if (angle > 90) {
+        angle = 180 - angle
+      } else if (angle < -90) {
+        angle = -180 - angle
       }
-      return
+
+      // Додатково обмежуємо максимальний нахил, щоб ракета
+      // ніколи не "тикалась носом" занадто вниз навіть у піку траєкторії.
+      const MAX_TILT_ANGLE = 40 // градусів; піковий нахил ~40°
+      if (angle > MAX_TILT_ANGLE) {
+        angle = MAX_TILT_ANGLE
+      } else if (angle < -MAX_TILT_ANGLE) {
+        angle = -MAX_TILT_ANGLE
+      }
+
+      // На початку траєкторії нахил повільно з'являється,
+      // наприкінці — поступово зникає, щоб ракета вирівнялася.
+      const appearEnd = 0.25
+      const fadeStart = 0.6
+      const fadeEnd = 1.0
+
+      let appearFactor = 1
+      if (eased <= appearEnd) {
+        appearFactor = Math.max(0, eased / appearEnd) // 0 -> 1
+      }
+
+      let fade = 1
+      if (eased >= fadeStart) {
+        const tFade = Math.min(1, Math.max(0, (eased - fadeStart) / (fadeEnd - fadeStart)))
+        fade = 1 - tFade // 1 -> 0 між 60% і 100% шляху
+      }
+
+      const totalFactor = appearFactor * fade
+      rocketAngle.value = angle * totalFactor
     }
-    
-    // Перевіряємо, скільки відео завантажилися
-    let readyCount = 0
-    videos.forEach((video) => {
-      if (video.readyState >= 2) { // HAVE_CURRENT_DATA
-        readyCount++
-      }
-    })
-    
-    const allReady = readyCount >= Math.max(1, videos.length * 0.5) // 50% відео готові
-    const minTimePassed = elapsed >= minDelay
-    
-    // Показуємо сторінку, якщо відео готові або пройшла мінімальна затримка
-    // Але не пізніше максимальної затримки
-    if ((allReady && minTimePassed) || elapsed >= maxDelay) {
-      isPageLoaded.value = true
+    prevX = x
+    prevY = y
+
+    if (t < 1) {
+      rocketAnimationFrameId = requestAnimationFrame(animate)
     } else {
-      setTimeout(checkReady, 100)
+      rocketAnimationFrameId = null
+      // Після основного польоту — фаза зависання та посадки
+      startRocketLanding(targetPlanetId, flightTarget, finalPos)
     }
   }
-  
-  // Починаємо перевірку після невеликої затримки для рендерингу
-  setTimeout(checkReady, 200)
-  
-  // Привітання від Стелли після завантаження
-  setTimeout(() => {
-    if (stella.value) {
-      stella.value.speak('welcome')
+
+  rocketAnimationFrameId = requestAnimationFrame(animate)
+}
+
+// Фаза зависання та посадки: ракета вирівнюється вертикально і повільно опускається
+function startRocketLanding(targetPlanetId, hoverPos, finalPos) {
+  isRocketLanding.value = true
+
+  const hoverDuration = 500  // мс — час зависання і вирівнювання (трохи коротший)
+  const landingDuration = 1200 // мс — повільний спуск
+
+  const startAngle = rocketAngle.value
+  const startTime = performance.now()
+
+  const animateLanding = (time) => {
+    const elapsed = time - startTime
+
+    if (elapsed <= hoverDuration) {
+      // Стадія зависання: позиція фіксована, кут плавно вирівнюється до 0°
+      const t = elapsed / hoverDuration
+      const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t
+
+      rocketX.value = hoverPos.x
+      rocketY.value = hoverPos.y
+      rocketAngle.value = startAngle + (0 - startAngle) * eased
+
+      rocketAnimationFrameId = requestAnimationFrame(animateLanding)
+      return
     }
-  }, 2000) // Через 2 секунди після завантаження сторінки
+
+    const landingElapsed = elapsed - hoverDuration
+
+    if (landingElapsed <= landingDuration) {
+      // Стадія посадки: вертикальний повільний спуск до фінальної точки
+      const t = landingElapsed / landingDuration
+      const eased = t * t // ease-in для більш м'якого старту спуску
+
+      rocketX.value = hoverPos.x
+      rocketY.value = hoverPos.y + (finalPos.y - hoverPos.y) * eased
+      rocketAngle.value = 0
+
+      rocketAnimationFrameId = requestAnimationFrame(animateLanding)
+      return
+    }
+
+    // Посадка завершена
+    rocketAnimationFrameId = null
+    isRocketFlying.value = false
+    isRocketLanding.value = false
+    currentRocketPlanetId.value = targetPlanetId
+
+    rocketX.value = finalPos.x
+    rocketY.value = finalPos.y
+    rocketAngle.value = 0
+
+    // Після завершення посадки з невеликою затримкою відкриваємо картку планети,
+    // щоб глядач встиг «побачити посадку».
+    setTimeout(() => {
+      openPlanetCard(targetPlanetId)
+    }, 300)
+  }
+
+  rocketAnimationFrameId = requestAnimationFrame(animateLanding)
+}
+
+// Ініціалізація ракети на Землі
+async function initializeRocket() {
+  await nextTick()
+
+  // Додаємо невелику затримку, щоб DOM точно відрендерився
+  await new Promise(resolve => setTimeout(resolve, 100))
+
+  const earthPos = getRocketAnchorPosition('earth')
+  if (earthPos) {
+    rocketX.value = earthPos.x
+    rocketY.value = earthPos.y
+    rocketAngle.value = 0
+    currentRocketPlanetId.value = 'earth'
+    isRocketVisible.value = true
+  } else {
+    console.warn('⚠️ Could not find Earth position')
+  }
+}
+
+// Завантаження сторінки - чекаємо поки зірки будуть готові
+watch(starsReady, (ready) => {
+  if (ready) {
+    // Після того, як зірки готові, показуємо сторінку з невеликою затримкою
+    setTimeout(() => {
+      isPageLoaded.value = true
+      // Ініціалізуємо ракету на Землі
+      nextTick(() => {
+        initializeRocket()
+      })
+      // Привітання від Стелли після завантаження
+      setTimeout(() => {
+        if (stella.value) {
+          stella.value.speak('welcome')
+        }
+      }, 2000)
+    }, 200)
+  }
+}, { immediate: true })
+
+// Fallback - якщо зірки не готові протягом 8 секунд, показуємо сторінку все одно
+onMounted(() => {
+  setTimeout(() => {
+    if (!starsReady.value) {
+      isPageLoaded.value = true
+      // Ініціалізуємо ракету на Землі
+      nextTick(() => {
+        initializeRocket()
+      })
+      // Привітання від Стелли після завантаження
+      setTimeout(() => {
+        if (stella.value) {
+          stella.value.speak('welcome')
+        }
+      }, 2000)
+    }
+  }, 8000)
 })
 
 </script>
@@ -214,7 +528,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   flex-wrap: nowrap;
-  gap: 40px;
+  gap: 60px;
   width: fit-content;
   max-width: 100%;
   min-width: 0;
@@ -230,6 +544,13 @@ onMounted(() => {
 
 .planets-container.loaded {
   opacity: 1;
+}
+
+/* Зменшуємо opacity планет коли картка відкрита для кращого фокусу */
+.planets-container.card-open {
+  opacity: 0.3;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
 }
 
 /* Loading overlay з градієнтним fade */

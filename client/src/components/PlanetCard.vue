@@ -20,17 +20,25 @@
           </div>
         </div>
 
-        <!-- Planet Image/Animation -->
+        <!-- Planet Video -->
         <div class="planet-image-container">
+          <div v-if="isYouTubeVideo" class="planet-video-wrapper">
+            <iframe 
+              :src="youtubeEmbedUrl"
+              class="planet-video-iframe"
+              frameborder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowfullscreen
+            ></iframe>
+          </div>
           <video 
-            v-if="planetAnimationPath"
+            v-else-if="planetVideoUrl"
             ref="planetVideo"
-            :src="planetAnimationPath"
+            :src="planetVideoUrl"
             class="planet-video"
-            autoplay
             loop
-            muted
             playsinline
+            controls
           ></video>
           <img 
             v-else-if="planetData.image && planetData.image !== '/images/...'" 
@@ -73,17 +81,25 @@
               <span class="icon">🎬</span>
               Медіа
             </h3>
-            <div class="media-buttons">
-              <button v-if="planetData.video && planetData.video !== 'https://'" 
-                      class="media-button video-button" 
-                      @mouseenter="playHover"
-                      @click="() => { playClick(); openVideo(); }">
-                <span>🎥</span> Відео
-              </button>
-              <button v-if="planetData.sound && planetData.sound !== '/sounds/...'" 
-                      class="media-button sound-button" 
-                      @mouseenter="playHover"
-                      @click="() => { playClick(); playSound(); }">
+            <!-- Photo Gallery -->
+            <div class="media-photo-container">
+              <img 
+                v-if="hasImage"
+                :src="planetData.image" 
+                :alt="planetData.name"
+                class="media-photo"
+              />
+              <div v-else class="media-photo-placeholder">
+                <div class="placeholder-icon">📷</div>
+                <p class="placeholder-text">Фото планеті</p>
+              </div>
+            </div>
+            <!-- Media Buttons -->
+            <div class="media-buttons" v-if="planetData.sound && planetData.sound !== '/sounds/...'">
+              <button 
+                class="media-button sound-button" 
+                @mouseenter="playHover"
+                @click="() => { playClick(); playSound(); }">
                 <span>🔊</span> Звук
               </button>
             </div>
@@ -95,12 +111,35 @@
               <span class="icon">🧩</span>
               Вікторина
             </h3>
-            <div class="quiz-preview">
-              <p>{{ planetData.quiz.length }} питань готових до проходження!</p>
-              <button class="quiz-button" @mouseenter="playHover"
-                      @click="() => { playClick(); startQuiz(); }">
-                Почати вікторину →
-              </button>
+            <div v-if="currentQuestion" class="quiz-content">
+              <p class="quiz-question">{{ currentQuestion.question }}</p>
+              <div class="quiz-options">
+                <button
+                  v-for="(option, key) in currentQuestion.options"
+                  :key="key"
+                  class="quiz-option"
+                  :class="{
+                    'selected': selectedAnswer === key,
+                    'correct': isAnswered && key === currentQuestion.answer,
+                    'incorrect': isAnswered && selectedAnswer === key && selectedAnswer !== currentQuestion.answer,
+                    'disabled': isAnswered
+                  }"
+                  @mouseenter="playHover"
+                  @click="() => { playClick(); selectAnswer(key); }"
+                  :disabled="isAnswered"
+                >
+                  <span class="option-label">{{ key.toUpperCase() }}.</span>
+                  <span class="option-text">{{ option }}</span>
+                </button>
+              </div>
+              <div v-if="isAnswered" class="quiz-result">
+                <p v-if="isCorrect" class="result-message correct-message">
+                  ✅ Правильно! Відмінна робота!
+                </p>
+                <p v-else class="result-message incorrect-message">
+                  ❌ Неправильно. Правильна відповідь: {{ currentQuestion.options[currentQuestion.answer] }}
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -108,10 +147,14 @@
 
         <!-- Starry background -->
         <div class="stars-background">
+          <!-- Статичні зірки через CSS градієнти (дуже швидко) -->
+          <div class="stars-layer" :style="{ backgroundImage: starPattern }"></div>
+          
+          <!-- Тільки невелика кількість анімованих зірок -->
           <div 
-            v-for="star in stars" 
+            v-for="star in animatedStars" 
             :key="star.id"
-            class="star"
+            class="animated-star"
             :style="{
               left: star.x + '%',
               top: star.y + '%',
@@ -150,7 +193,8 @@
 
 <script setup>
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
-import { planets } from '../data/planets'
+import { getCachedStars, getCachedAnimatedStars } from '../utils/starBackground.js'
+import { getRandomQuestionFromQuiz, validateQuizResponse, updateUserProgress, checkUserForBadge } from '../utils/logic.js'
 import { playHover, playClick } from '../utils/sounds'
 
 const props = defineProps({
@@ -170,14 +214,61 @@ const props = defineProps({
 
 const planetVideo = ref(null)
 
-const planetAnimationPath = computed(() => {
-  if (!props.planetId) return null
-  const planet = planets.find(p => p.id === props.planetId)
-  return planet?.animationPath || null
+// Функція для визначення, чи це YouTube посилання
+function isYouTubeLink(url) {
+  if (!url) return false
+  const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)/
+  return youtubeRegex.test(url)
+}
+
+// Функція для конвертації YouTube посилання в embed формат
+function convertToYouTubeEmbed(url) {
+  if (!url) return null
+  
+  // Вже embed посилання
+  if (url.includes('youtube.com/embed/')) {
+    return url
+  }
+  
+  // Коротке посилання youtu.be
+  const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/)
+  if (shortMatch) {
+    return `https://www.youtube.com/embed/${shortMatch[1]}?loop=1&playlist=${shortMatch[1]}`
+  }
+  
+  // Звичайне YouTube посилання
+  const regularMatch = url.match(/(?:youtube\.com\/watch\?v=|youtube\.com\/v\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]+)/)
+  if (regularMatch) {
+    return `https://www.youtube.com/embed/${regularMatch[1]}?loop=1&playlist=${regularMatch[1]}`
+  }
+  
+  return null
+}
+
+const planetVideoUrl = computed(() => {
+  if (props.planetData.video && props.planetData.video !== 'https://' && !isYouTubeLink(props.planetData.video)) {
+    return props.planetData.video
+  }
+  return null
 })
 
-// Генерація зірок для фону
-const stars = ref([])
+const isYouTubeVideo = computed(() => {
+  return props.planetData.video && props.planetData.video !== 'https://' && isYouTubeLink(props.planetData.video)
+})
+
+const youtubeEmbedUrl = computed(() => {
+  if (isYouTubeVideo.value) {
+    return convertToYouTubeEmbed(props.planetData.video)
+  }
+  return null
+})
+
+// Використовуємо кешовані зірки з градієнтами (дуже швидко)
+const starPattern = computed(() => getCachedStars())
+
+// Тільки невелика кількість анімованих зірок (10 замість 100)
+const animatedStars = ref(getCachedAnimatedStars().slice(0, 10))
+
 const constellationLines = ref([
   // Сузір'я 1 (Великий Віз)
   { x1: 15, y1: 20, x2: 25, y2: 25 },
@@ -195,38 +286,15 @@ const constellationLines = ref([
   { x1: 30, y1: 65, x2: 25, y2: 75 },
 ])
 
-// Функція для генерації випадкової зірки
-function generateStar(id) {
-  return {
-    id: id,
-    x: Math.random() * 95 + 2.5, // 2.5-97.5% щоб не виходили за межі
-    y: Math.random() * 95 + 2.5,
-    size: Math.random() * 2.5 + 0.8, // 0.8-3.3px
-    delay: Math.random() * 4, // різні затримки для різноманітності
-    duration: Math.random() * 2.5 + 1.8, // 1.8-4.3s - різні швидкості блимання
-  }
-}
+const emit = defineEmits(['close', 'badge-earned'])
 
-// Генеруємо зірки при монтуванні або коли картка стає видимою
-watch(() => props.isVisible, (isVisible) => {
-  if (isVisible && stars.value.length === 0) {
-    // Генеруємо ~100 зірок для красивого та живого фону
-    stars.value = Array.from({ length: 100 }, (_, i) => generateStar(i))
-  }
+const hasImage = computed(() => {
+  return props.planetData.image && props.planetData.image !== '/images/...'
 })
-
-// Генеруємо зірки при монтуванні
-onMounted(() => {
-  if (props.isVisible) {
-    stars.value = Array.from({ length: 100 }, (_, i) => generateStar(i))
-  }
-})
-
-const emit = defineEmits(['close'])
 
 const hasMedia = computed(() => {
-  return (props.planetData.video && props.planetData.video !== 'https://') ||
-         (props.planetData.sound && props.planetData.sound !== '/sounds/...')
+  // Медіа секція завжди показується, навіть якщо немає фото (буде плейсхолдер)
+  return true
 })
 
 function closeCard() {
@@ -239,12 +307,6 @@ function handleEscape(event) {
   }
 }
 
-function openVideo() {
-  if (props.planetData.video && props.planetData.video !== 'https://') {
-    window.open(props.planetData.video, '_blank')
-  }
-}
-
 function playSound() {
   if (props.planetData.sound && props.planetData.sound !== '/sounds/...') {
     const audio = new Audio(props.planetData.sound)
@@ -252,38 +314,67 @@ function playSound() {
   }
 }
 
-function startQuiz() {
-  // TODO: Implement quiz functionality
-  console.log('Quiz started for', props.planetData.name)
+// Quiz state
+const currentQuestion = computed(() => {
+  if (props.planetData.quiz && props.planetData.quiz.length > 0) {
+    return getRandomQuestionFromQuiz(props.planetData.quiz)
+  }
+  return null
+})
+
+const selectedAnswer = ref(null)
+const isAnswered = ref(false)
+const isCorrect = ref(false)
+
+function selectAnswer(answerKey) {
+  if (isAnswered.value) return
+  
+  selectedAnswer.value = answerKey
+  isAnswered.value = true
+  isCorrect.value = validateQuizResponse(currentQuestion.value, answerKey)
+  
+  // Оновлюємо прогрес користувача, якщо відповідь правильна
+  if (isCorrect.value && props.planetId) {
+    updateUserProgress(props.planetId)
+    // Перевіряємо, чи користувач заслужив бейдж
+    if (checkUserForBadge()) {
+      // Невелика затримка перед показом бейджа для кращого UX
+      setTimeout(() => {
+        emit('badge-earned')
+      }, 500)
+    }
+  }
 }
+
+// Скидаємо стан вікторини при зміні планети або відкритті картки
+function resetQuizState() {
+  selectedAnswer.value = null
+  isAnswered.value = false
+  isCorrect.value = false
+}
+
+watch(() => props.planetId, () => {
+  resetQuizState()
+})
 
 // Додаємо обробник для клавіші ESC
 watch(() => props.isVisible, (isVisible) => {
   if (isVisible) {
     document.addEventListener('keydown', handleEscape)
-    // Автоматично відтворюємо відео при відкритті картки
-    setTimeout(() => {
-      if (planetVideo.value && planetAnimationPath.value) {
-        planetVideo.value.play().catch(error => console.error('Video play failed:', error))
-      }
-    }, 100)
+    // Скидаємо стан вікторини при відкритті картки
+    resetQuizState()
+    // Не відтворюємо відео автоматично - користувач сам запустить через controls
   } else {
     document.removeEventListener('keydown', handleEscape)
-    // Зупиняємо відео при закритті картки
-    if (planetVideo.value) {
+    // Зупиняємо відео при закритті картки (тільки для звичайних video, не YouTube)
+    if (planetVideo.value && !isYouTubeVideo.value) {
       planetVideo.value.pause()
     }
   }
 })
 
-// Також відтворюємо відео при зміні planetId
-watch(() => props.planetId, () => {
-  if (props.isVisible && planetVideo.value && planetAnimationPath.value) {
-    setTimeout(() => {
-      planetVideo.value?.play().catch(error => console.error('Video play failed:', error))
-    }, 100)
-  }
-})
+// Не відтворюємо відео автоматично при зміні planetData
+// Користувач сам запустить через controls
 
 onMounted(() => {
   if (props.isVisible) {
@@ -305,8 +396,8 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.85);
+  /* Видалено backdrop-filter для кращої продуктивності */
   display: flex;
   justify-content: center;
   align-items: center;
@@ -348,7 +439,24 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-.star {
+/* Статичні зірки через CSS градієнти (дуже швидко, без DOM елементів) */
+.stars-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  background-size: 100% 100%;
+  opacity: 0.7;
+  will-change: opacity;
+  pointer-events: none;
+  border-radius: 30px;
+}
+
+/* Анімовані зірки (тільки невелика кількість для ефекту) */
+.animated-star {
   position: absolute;
   background: white;
   border-radius: 50%;
@@ -358,21 +466,13 @@ onUnmounted(() => {
     0 0 6px rgba(150, 180, 255, 0.5),
     0 0 8px rgba(100, 150, 255, 0.3);
   animation: twinkleStar infinite ease-in-out;
-  opacity: 0.4;
+  opacity: 0.6;
   transform-origin: center;
+  will-change: transform, opacity;
 }
 
-/* Більші зірки мають інтенсивніше світіння */
-.star:nth-child(4n) {
-  box-shadow: 
-    0 0 3px rgba(255, 255, 255, 1),
-    0 0 6px rgba(255, 255, 255, 0.8),
-    0 0 9px rgba(150, 180, 255, 0.6),
-    0 0 12px rgba(100, 150, 255, 0.4);
-}
-
-/* Деякі зірки мають тепліший відтінок */
-.star:nth-child(7n) {
+/* Різні відтінки для анімованих зірок */
+.animated-star:nth-child(3n) {
   box-shadow: 
     0 0 2px rgba(255, 220, 150, 0.9),
     0 0 4px rgba(255, 200, 100, 0.7),
@@ -399,7 +499,7 @@ onUnmounted(() => {
   animation: drawConstellation 3s ease-in-out forwards;
   animation-delay: var(--line-delay, 0s);
   opacity: 0;
-  filter: drop-shadow(0 0 2px rgba(150, 180, 255, 0.3));
+  filter: drop-shadow(0 0 2px rgba(150, 180, 255, 0.3));    
 }
 
 @keyframes drawConstellation {
@@ -418,19 +518,11 @@ onUnmounted(() => {
 
 @keyframes twinkleStar {
   0%, 100% {
-    opacity: 0.2;
-    transform: scale(0.7);
-  }
-  25% {
-    opacity: 0.6;
-    transform: scale(1);
+    opacity: 0.4;
+    transform: scale(0.9);
   }
   50% {
-    opacity: 1;
-    transform: scale(1.3);
-  }
-  75% {
-    opacity: 0.7;
+    opacity: 0.8;
     transform: scale(1.1);
   }
 }
@@ -482,7 +574,7 @@ onUnmounted(() => {
   justify-content: center;
   transition: all 0.3s ease;
   z-index: 10;
-  backdrop-filter: blur(5px);
+  /* Видалено backdrop-filter для кращої продуктивності */
 }
 
 .close-button:hover {
@@ -533,22 +625,45 @@ onUnmounted(() => {
   justify-content: center;
   align-items: center;
   margin: 30px 0;
-  height: 200px;
+  min-height: 300px;
   flex-shrink: 0;
   position: relative;
   z-index: 2;
 }
 
 .planet-video {
-  width: 200px;
-  height: 200px;
-  border-radius: 50%;
-  object-fit: cover;
+  width: 100%;
+  max-width: 560px;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border-radius: 15px;
+  object-fit: contain;
   box-shadow: 
     0 10px 30px rgba(0, 0, 0, 0.5),
     0 0 40px rgba(100, 150, 255, 0.4);
-  animation: float 3s ease-in-out infinite;
   background: transparent;
+}
+
+.planet-video-wrapper {
+  width: 100%;
+  max-width: 560px;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border-radius: 15px;
+  overflow: hidden;
+  box-shadow: 
+    0 10px 30px rgba(0, 0, 0, 0.5),
+    0 0 40px rgba(100, 150, 255, 0.4);
+  position: relative;
+}
+
+.planet-video-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
 .planet-image {
@@ -661,6 +776,54 @@ onUnmounted(() => {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.media-photo-container {
+  width: 100%;
+  margin-bottom: 20px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.media-photo {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: cover;
+  aspect-ratio: 16 / 9;
+  transition: transform 0.3s ease;
+}
+
+.media-photo:hover {
+  transform: scale(1.02);
+}
+
+.media-photo-placeholder {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.placeholder-icon {
+  font-size: 3rem;
+  margin-bottom: 10px;
+  opacity: 0.6;
+}
+
+.placeholder-text {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  margin: 0;
+  opacity: 0.6;
+}
+
 .media-buttons {
   display: flex;
   gap: 15px;
@@ -692,49 +855,117 @@ onUnmounted(() => {
   box-shadow: 0 5px 20px rgba(100, 150, 255, 0.4);
 }
 
-.video-button:hover {
-  border-color: #ff6b6b;
-  box-shadow: 0 5px 20px rgba(255, 107, 107, 0.4);
-}
-
 .sound-button:hover {
   border-color: #4ecdc4;
   box-shadow: 0 5px 20px rgba(78, 205, 196, 0.4);
 }
 
-.quiz-section {
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 165, 0, 0.1));
-  border-color: rgba(255, 215, 0, 0.3);
+
+.quiz-content {
+  font-family: 'Nunito', sans-serif;
 }
 
-.quiz-preview {
+.quiz-question {
   font-family: 'Nunito', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #fff;
+  margin: 0 0 20px 0;
+  line-height: 1.6;
+}
+
+.quiz-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.quiz-option {
+  font-family: 'Nunito', sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #e0e0e0;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.quiz-option:hover:not(.disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 215, 0, 0.5);
+  transform: translateX(5px);
+}
+
+.quiz-option.selected:not(.disabled) {
+  border-color: #ffd700;
+  background: rgba(255, 215, 0, 0.15);
+  color: #ffd700;
+}
+
+.quiz-option.correct {
+  border-color: #4ade80;
+  background: rgba(74, 222, 128, 0.2);
+  color: #4ade80;
+}
+
+.quiz-option.incorrect {
+  border-color: #f87171;
+  background: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+}
+
+.quiz-option.disabled {
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+.option-label {
+  font-weight: 700;
+  min-width: 24px;
+}
+
+.option-text {
+  flex: 1;
+}
+
+.quiz-result {
+  margin-top: 20px;
+  padding: 15px;
+  border-radius: 12px;
   text-align: center;
 }
 
-.quiz-preview p {
+.result-message {
   font-family: 'Nunito', sans-serif;
-  font-weight: 400;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+  padding: 0;
 }
 
-.quiz-button {
-  font-family: 'Nunito', sans-serif;
-  margin-top: 15px;
-  padding: 15px 30px;
-  border: 2px solid #ffd700;
-  border-radius: 25px;
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 165, 0, 0.2));
-  color: #ffd700;
-  font-size: 1.1rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.3s ease;
+.correct-message {
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.1);
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(74, 222, 128, 0.3);
 }
 
-.quiz-button:hover {
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.4), rgba(255, 165, 0, 0.4));
-  transform: translateY(-3px) scale(1.05);
-  box-shadow: 0 5px 25px rgba(255, 215, 0, 0.5);
+.incorrect-message {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(248, 113, 113, 0.3);
 }
 
 .card-decoration {
