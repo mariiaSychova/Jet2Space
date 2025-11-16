@@ -1,3 +1,13 @@
+import sunImg from '../assets/images/sun.jpg'
+import mercuryImg from '../assets/images/mercury.jpg'
+import venusImg from '../assets/images/venus.jpg'
+import earthImg from '../assets/images/earth.jpg'
+import marsImg from '../assets/images/mars.jpg'
+import jupiterImg from '../assets/images/jupiter.jpg'
+import saturnImg from '../assets/images/saturn.jpg'
+import uranusImg from '../assets/images/uranus.jpg'
+import neptuneImg from '../assets/images/neptune.jpg'
+
 export const galaxyConfig = {
   sun: {
     name: "Сонце",
@@ -7,9 +17,9 @@ export const galaxyConfig = {
     facts: [
       "Сонце випромінює енергію, якої вистачило б, щоб забезпечити світлом і теплом всі планети Сонячної системи протягом мільярдів років.",
     ],
-    image: "/images/...",
+    image: sunImg,
     sound: "/sounds/...",
-    video: "https://www.youtube.com/watch?v=6tmbeLTHC_0", // Сонце - NASA відео
+    video: "https://www.youtube.com/embed/2HoTK_Gqi2Q?si=dnCq7m74puuhBnib", // Сонце - NASA відео
     quiz: [
       {
         question: "Яка температура на поверхні Сонця?",
@@ -29,9 +39,9 @@ export const galaxyConfig = {
     facts: [
       "На Меркурії є ділянки, які постійно перебувають у тіні, навіть на екваторі, де температура може падати до -170°C, і там виявлено крижані відкладення води.",
     ],
-    image: "/images/...",
+    image: mercuryImg,
     sound: "/sounds/...",
-    video: "https://www.youtube.com/watch?v=0KBjnNuhRHs", // Меркурій
+    video: "https://www.youtube.com/embed/0KBjnNuhRHs?si=Z1ITrTJIkSVwCdVO", // Меркурій
     quiz: [
       {
         question: "Яка найближча планета до Сонця?",
@@ -52,9 +62,9 @@ export const galaxyConfig = {
     facts: [
       "Венеру називають «гарячою сестрою Землі», бо її атмосфера створює постійний парниковий ефект, через який планета стала справжньою пекельною печею.",
     ],
-    image: "/images/...",
+    image: venusImg,
     sound: "/sounds/...",
-    video: "https://www.youtube.com/watch?v=B4XzLDM3Py8", // Венера
+    video: "https://www.youtube.com/embed/BvXa1n9fjow?si=ly5vfRydhYhjvq7D", // Венера
     quiz: [
       {
         question: "Чому Венеру називають «гарячою сестрою Землі»?",
@@ -75,9 +85,9 @@ export const galaxyConfig = {
     facts: [
       "Хоча Земля здається стабільною, її ядро обертається трохи швидше за поверхню, що створює магнітне поле та впливає на полярні сяйва.",
     ],
-    image: "/images/...",
+    image: earthImg,
     sound: "/sounds/...",
-    video: "https://www.youtube.com/watch?v=dhRUe-gz690", // Земля
+    video: "https://www.youtube.com/embed/HCDVN7DCzYE?si=tTszM52k63HeQTrf", // Земля
     quiz: [
       {
         question: "Скільки відсотків поверхні Землі покрито водою?",
@@ -97,9 +107,9 @@ export const galaxyConfig = {
     facts: [
       "Марс має сезонні пилові бурі, які можуть вкривати всю планету на місяці, роблячи її невидимою навіть для великих телескопів.",
     ],
-    image: "/images/...",
+    image: marsImg,
     sound: "/sounds/...",
-    video: "https://www.youtube.com/watch?v=D8pnmwOXhoY", // Марс
+    video: "https://www.youtube.com/embed/E-PuUs25rJA?si=2o7d3LipGodP-oD5", // Марс
     quiz: [
       {
         question: "Яка найвища гора в Сонячній системі знаходиться на Марсі?",
@@ -119,9 +129,9 @@ export const galaxyConfig = {
     facts: [
       "Юпітер настільки великий, що його гравітація впливає на комети та астероїди, відхиляючи їх від траєкторій і часто захищаючи внутрішні планети, включно з Землею, від зіткнень.",
     ],
-    image: "/images/...",
+    image: jupiterImg,
     sound: "/sounds/...",
-    video: "https://www.youtube.com/watch?v=PtkqwslbLY8", // Юпітер
+    video: "https://www.youtube.com/embed/PtkqwslbLY8?si=jbL2jx0NZ7WGZ-AT", // Юпітер
     quiz: [
       {
         question: "Яка планета є найбільшою в Сонячній системі?",
@@ -141,9 +151,9 @@ export const galaxyConfig = {
     facts: [
       "Хоча Сатурн виглядає як «пухка» планета через свої кільця, він такий легкий, що якби його помістити у величезну водойму, він би плавав.",
     ],
-    image: "/images/...",
+    image: saturnImg,
     sound: "/sounds/...",
-    video: "https://www.youtube.com/watch?v=epZdZaEQhS0", // Сатурн
+    video: "https://www.youtube.com/embed/epZdZaEQhS0?si=JbnC5R0LIaO83Xbw", // Сатурн
     quiz: [
       {
         question: "З чого складаються кільця Сатурна?",
@@ -164,9 +174,9 @@ export const galaxyConfig = {
     facts: [
       "Через нахил осі полюси Урану на десятки років опиняються у темряві або постійно освітлені, створюючи дивні космічні «нічні й денні цикли».",
     ],
-    image: "/images/...",
+    image: uranusImg,
     sound: "/sounds/...",
-    video: "https://www.youtube.com/watch?v=m4NXbFOQOGQ", // Уран
+    video: "https://www.youtube.com/embed/m4NXbFOiOGk?si=b2AgqX3KqMQ8KF6W", // Уран
     quiz: [
       {
         question: "Чому Уран має блакитний відтінок?",
@@ -187,9 +197,9 @@ export const galaxyConfig = {
     facts: [
       "На Нептуні вітер рухається швидше, ніж будь-які урагани на Землі, створюючи справжні «космічні вихори.",
     ],
-    image: "/images/...",
+    image: neptuneImg,
     sound: "/sounds/...",
-    video: "https://www.youtube.com/watch?v=N6n-9l1eV2Q", // Нептун
+    video: "https://www.youtube.com/embed/NStn7zZKXfE?si=wuREsFQ1Ru44jRMq", // Нептун
     quiz: [
       {
         question: "Яка швидкість вітрів на Нептуні може сягати?",

@@ -42,6 +42,9 @@
       @close="closePlanetCard"
       @badge-earned="handleBadgeEarned"
     />
+
+    <!-- Stella Component -->
+    <Stella ref="stella" />
   </div>
 </template>
 
@@ -50,13 +53,14 @@ import { ref, computed, nextTick, onMounted, watch, inject } from 'vue'
 import Planet from '../../src/components/Planet.vue'
 import PlanetCard from '../../src/components/PlanetCard.vue'
 import Rocket from '../../src/components/Rocket.vue'
+import Stella from '../../src/components/Stella.vue'
 import { planets } from '../data/planets'
 import { galaxyConfig } from '../utils/data.js'
 import { markPlanetAsVisited } from '../utils/logic.js'
 import { useWindowSize } from '@vueuse/core'
 import { playClick } from '../utils/sounds.js'
 
-// Отримуємо starsReady через inject
+// Отримуємо starsReady через inject (стан зіркового фону)
 const starsReady = inject('starsReady', ref(false))
 // Отримуємо функцію обробки отримання бейджа
 const handleBadgeEarned = inject('handleBadgeEarned', () => {})
@@ -70,6 +74,7 @@ const selectedPlanetData = ref(null)
 const selectedPlanetId = ref(null)
 const isCardVisible = ref(false)
 const isPageLoaded = ref(false)
+const stella = ref(null)
 
 // Rocket state
 const isRocketVisible = ref(false)
@@ -220,6 +225,11 @@ async function openPlanetCard(planetId) {
   
   // Після того, як компонент відрендерився, показуємо картку
   isCardVisible.value = true
+  
+  // Стелла каже про подорож
+  if (stella.value) {
+    stella.value.speak('traveling')
+  }
   
   // Блокуємо скрол сторінки під час відкриття картки
   document.body.style.overflow = 'hidden'
@@ -436,11 +446,10 @@ function startRocketLanding(targetPlanetId, hoverPos, finalPos) {
 // Ініціалізація ракети на Землі
 async function initializeRocket() {
   await nextTick()
-  
+
   // Додаємо невелику затримку, щоб DOM точно відрендерився
   await new Promise(resolve => setTimeout(resolve, 100))
-  
-  // Діагностика: перевіряємо всі планети
+
   const earthPos = getRocketAnchorPosition('earth')
   if (earthPos) {
     rocketX.value = earthPos.x
@@ -463,6 +472,12 @@ watch(starsReady, (ready) => {
       nextTick(() => {
         initializeRocket()
       })
+      // Привітання від Стелли після завантаження
+      setTimeout(() => {
+        if (stella.value) {
+          stella.value.speak('welcome')
+        }
+      }, 2000)
     }, 200)
   }
 }, { immediate: true })
@@ -476,11 +491,14 @@ onMounted(() => {
       nextTick(() => {
         initializeRocket()
       })
+      // Привітання від Стелли після завантаження
+      setTimeout(() => {
+        if (stella.value) {
+          stella.value.speak('welcome')
+        }
+      }, 2000)
     }
   }, 8000)
-  
-  // Додаємо глобальний обробник кліку для діагностики (Ctrl+Click)
-  // Глобальний діагностичний обробник Ctrl+Click більше не потрібен
 })
 
 </script>
