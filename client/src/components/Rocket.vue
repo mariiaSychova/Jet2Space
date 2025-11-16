@@ -5,7 +5,7 @@
     :style="rocketStyle"
   >
     <!-- Ракета -->
-    <div class="rocket">
+    <div class="rocket" :class="{ 'rocket-landing': isLanding }">
       <!-- Корпус ракети -->
       <div class="rocket-body">
         <div class="rocket-nose"></div>
@@ -27,7 +27,15 @@ const props = defineProps({
     type: Number,
     default: 0
   },
+  angle: {
+    type: Number,
+    default: 0 // у градусах
+  },
   isVisible: {
+    type: Boolean,
+    default: false
+  },
+  isLanding: {
     type: Boolean,
     default: false
   }
@@ -37,7 +45,7 @@ const rocketStyle = computed(() => {
   return {
     left: `${props.x}px`,
     top: `${props.y}px`,
-    transform: 'translate(-50%, -100%)', // Ракета вертикальна, прив'язана до нижньої частини
+    transform: `translate(-50%, -100%) rotate(${props.angle}deg)`, // Нахил ракети по траєкторії
   }
 })
 </script>

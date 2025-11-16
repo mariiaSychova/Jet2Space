@@ -27,7 +27,9 @@
       <Rocket
         :x="rocketX"
         :y="rocketY"
+        :angle="rocketAngle"
         :is-visible="isRocketVisible"
+        :is-landing="isRocketLanding"
       />
     </main>
 
@@ -73,8 +75,10 @@ const isPageLoaded = ref(false)
 const isRocketVisible = ref(false)
 const rocketX = ref(0)
 const rocketY = ref(0)
+const rocketAngle = ref(0) // у градусах
 const currentRocketPlanetId = ref('earth') // id планети, на якій зараз ракета
 const isRocketFlying = ref(false)
+const isRocketLanding = ref(false)
 let rocketAnimationFrameId = null
 
 const planetGap = 60
@@ -256,12 +260,35 @@ function startRocketFlight(targetPlanetId) {
 
   isRocketFlying.value = true
   isRocketVisible.value = true
+  isRocketLanding.value = false
 
-  const duration = 1600 // тривалість польоту в мс
-  const distance = Math.hypot(targetPos.x - startPos.x, targetPos.y - startPos.y)
-  const parabolaHeight = distance * 0.25
+  // Фінальна позиція (після посадки)
+  const finalPos = { ...targetPos }
+
+  // Позиція, де ракета закінчує основний політ і "зависає" перед посадкою
+  const hoverOffset = 40
+  const flightTarget = {
+    x: targetPos.x,
+    y: targetPos.y - hoverOffset
+  }
+
+  const duration = 2000 // тривалість основного польоту
+  const distance = Math.hypot(flightTarget.x - startPos.x, flightTarget.y - startPos.y)
+
+  // Висота параболи:
+  // - зростає з відстанню, щоб політ виглядав "вище" для далеких планет
+  // - але жорстко обмежена, щоб ракета ніколи не вилітала за межі екрана
+  const MIN_PARABOLA_HEIGHT = 60    // мінімальна "арка", щоб траєкторія не була пласкою
+  const MAX_PARABOLA_HEIGHT = 180   // максимум, щоб вершина завжди залишалась у кадрі
+  const dynamicHeight = distance * 0.18
+  const parabolaHeight = Math.min(
+    MAX_PARABOLA_HEIGHT,
+    Math.max(MIN_PARABOLA_HEIGHT, dynamicHeight)
+  )
 
   const startTime = performance.now()
+  let prevX = startPos.x
+  let prevY = startPos.y
 
   const animate = (time) => {
     let t = (time - startTime) / duration
@@ -271,32 +298,93 @@ function startRocketFlight(targetPlanetId) {
     // Легке ease-in-out, щоб старт/приземлення були плавні
     const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t
 
-    const x = startPos.x + (targetPos.x - startPos.x) * eased
+    const x = startPos.x + (flightTarget.x - startPos.x) * eased
 
-    const baseY = startPos.y + (targetPos.y - startPos.y) * eased
-    const parabolaOffset = -4 * parabolaHeight * eased * (1 - eased)
+    const baseY = startPos.y + (flightTarget.y - startPos.y) * eased
+    // Парабола завжди "над" планетами (вгору), щоб ракета не пролітала знизу
+    const parabolaOffset = -4 * parabolaHeight * eased * (1 - eased) // пікова точка = -parabolaHeight
     const y = baseY + parabolaOffset
 
     rocketX.value = x
     rocketY.value = y
 
+    // Обчислюємо напрямок руху для нахилу ракети
+    const dx = x - prevX
+    const dy = y - prevY
+    if (Math.abs(dx) > 0.001 || Math.abs(dy) > 0.001) {
+      rocketAngle.value = Math.atan2(dy, dx) * (180 / Math.PI) + 90 // +90, щоб ракета "дивилась" по траєкторії
+    }
+    prevX = x
+    prevY = y
+
     if (t < 1) {
       rocketAnimationFrameId = requestAnimationFrame(animate)
     } else {
       rocketAnimationFrameId = null
-      isRocketFlying.value = false
-      currentRocketPlanetId.value = targetPlanetId
-
-      // Гарантуємо точну фінальну позицію
-      rocketX.value = targetPos.x
-      rocketY.value = targetPos.y
-
-      // Після завершення польоту відкриваємо картку планети
-      openPlanetCard(targetPlanetId)
+      // Після основного польоту — фаза зависання та посадки
+      startRocketLanding(targetPlanetId, flightTarget, finalPos)
     }
   }
 
   rocketAnimationFrameId = requestAnimationFrame(animate)
+}
+
+// Фаза зависання та посадки: ракета вирівнюється вертикально і повільно опускається
+function startRocketLanding(targetPlanetId, hoverPos, finalPos) {
+  isRocketLanding.value = true
+
+  const hoverDuration = 400  // мс — час зависання і вирівнювання
+  const landingDuration = 600 // мс — повільний спуск
+
+  const startAngle = rocketAngle.value
+  const startTime = performance.now()
+
+  const animateLanding = (time) => {
+    const elapsed = time - startTime
+
+    if (elapsed <= hoverDuration) {
+      // Стадія зависання: позиція фіксована, кут плавно вирівнюється до 0°
+      const t = elapsed / hoverDuration
+      const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t
+
+      rocketX.value = hoverPos.x
+      rocketY.value = hoverPos.y
+      rocketAngle.value = startAngle + (0 - startAngle) * eased
+
+      rocketAnimationFrameId = requestAnimationFrame(animateLanding)
+      return
+    }
+
+    const landingElapsed = elapsed - hoverDuration
+
+    if (landingElapsed <= landingDuration) {
+      // Стадія посадки: вертикальний повільний спуск до фінальної точки
+      const t = landingElapsed / landingDuration
+      const eased = t * t // ease-in для більш м'якого старту спуску
+
+      rocketX.value = hoverPos.x
+      rocketY.value = hoverPos.y + (finalPos.y - hoverPos.y) * eased
+      rocketAngle.value = 0
+
+      rocketAnimationFrameId = requestAnimationFrame(animateLanding)
+      return
+    }
+
+    // Посадка завершена
+    rocketAnimationFrameId = null
+    isRocketFlying.value = false
+    isRocketLanding.value = false
+    currentRocketPlanetId.value = targetPlanetId
+
+    rocketX.value = finalPos.x
+    rocketY.value = finalPos.y
+    rocketAngle.value = 0
+
+    // Після завершення посадки відкриваємо картку планети
+    openPlanetCard(targetPlanetId)
+  }
+
+  rocketAnimationFrameId = requestAnimationFrame(animateLanding)
 }
 
 // Ініціалізація ракети на Землі
@@ -311,6 +399,7 @@ async function initializeRocket() {
   if (earthPos) {
     rocketX.value = earthPos.x
     rocketY.value = earthPos.y
+    rocketAngle.value = 0
     currentRocketPlanetId.value = 'earth'
     isRocketVisible.value = true
   } else {
