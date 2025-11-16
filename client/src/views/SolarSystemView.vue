@@ -272,7 +272,7 @@ function startRocketFlight(targetPlanetId) {
     y: targetPos.y - hoverOffset
   }
 
-  const duration = 5000 // тривалість основного польоту (дуже повільний політ)
+  const duration = 5000 // тривалість польоту (дуже повільний політ)
   const distance = Math.hypot(flightTarget.x - startPos.x, flightTarget.y - startPos.y)
 
   // Висота параболи:
@@ -296,16 +296,13 @@ function startRocketFlight(targetPlanetId) {
     if (t > 1) t = 1
 
     // Реалістичний профіль швидкості: спочатку плавне прискорення, потім
-    // більш рівномірний рух і наприкінці плавне гальмування.
-    // Використовуємо easeInOutCubic.
+    // більш рівномірний рух і наприкінці плавне гальмування (easeInOutCubic).
     const eased = t < 0.5
       ? 4 * t * t * t
       : 1 - Math.pow(-2 * t + 2, 3) / 2
 
     const x = startPos.x + (flightTarget.x - startPos.x) * eased
-
     const baseY = startPos.y + (flightTarget.y - startPos.y) * eased
-    // Парабола завжди "над" планетами (вгору), щоб ракета не пролітала знизу
     const parabolaOffset = -4 * parabolaHeight * eased * (1 - eased) // пікова точка = -parabolaHeight
     const y = baseY + parabolaOffset
 
@@ -331,17 +328,25 @@ function startRocketFlight(targetPlanetId) {
         angle = -180 - angle
       }
 
-      // Починаємо вирівнювання значно раніше (після ~60% шляху)
-      // і поступово "гасимо" кут до 0°, симетрично для польоту вправо і вліво.
+      // На початку траєкторії нахил повільно з'являється,
+      // наприкінці — поступово зникає, щоб ракета вирівнялася.
+      const appearEnd = 0.25
       const fadeStart = 0.6
       const fadeEnd = 1.0
+
+      let appearFactor = 1
+      if (eased <= appearEnd) {
+        appearFactor = Math.max(0, eased / appearEnd) // 0 -> 1
+      }
+
       let fade = 1
       if (eased >= fadeStart) {
         const tFade = Math.min(1, Math.max(0, (eased - fadeStart) / (fadeEnd - fadeStart)))
         fade = 1 - tFade // 1 -> 0 між 60% і 100% шляху
       }
 
-      rocketAngle.value = angle * fade
+      const totalFactor = appearFactor * fade
+      rocketAngle.value = angle * totalFactor
     }
     prevX = x
     prevY = y
