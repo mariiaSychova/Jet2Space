@@ -73,6 +73,9 @@ const isPageLoaded = ref(false)
 const isRocketVisible = ref(false)
 const rocketX = ref(0)
 const rocketY = ref(0)
+const currentRocketPlanetId = ref('earth') // id планети, на якій зараз ракета
+const isRocketFlying = ref(false)
+let rocketAnimationFrameId = null
 
 const planetGap = 60
 const idealContainerWidth = computed(() => {
@@ -112,7 +115,7 @@ const scaleFactor = computed(() => {
   return Math.max(calculatedScale, 0.2) // Мінімум 20% масштаб
 })
 
-// Отримуємо позицію планети відносно контейнера планет
+// Отримуємо позицію центру планети відносно контейнера (враховуючи scale)
 function getPlanetPosition(planetId) {
   if (!containerRef.value) return null
   
@@ -141,9 +144,18 @@ function getPlanetPosition(planetId) {
   const centerX = wrapperRect.left + wrapperRect.width / 2 - containerRect.left
   const centerY = wrapperRect.top + wrapperRect.height / 2 - containerRect.top
   
+  return { x: centerX, y: centerY }
+}
+
+// Позиція "якоря" ракети над планетою в логічних (немасштабованих) координатах
+function getRocketAnchorPosition(planetId) {
+  const planetPos = getPlanetPosition(planetId)
+  if (!planetPos) return null
+
+  const safeScale = scaleFactor.value || 1
   return {
-    x: centerX,
-    y: centerY
+    x: planetPos.x / safeScale,
+    y: (planetPos.y - 80) / safeScale // 80px вище центру планети
   }
 }
 
@@ -175,10 +187,12 @@ function handleContainerClick(event) {
 
 // Обробка кліку на планету
 function handlePlanetClick(planetId) {
-  openPlanetCard(planetId)
+  // Під час польоту ігноруємо нові кліки
+  if (isRocketFlying.value) return
+  startRocketFlight(planetId)
 }
 
-// Відкриття картки планети
+// Відкриття картки планети (викликаємо тільки після завершення польоту)
 async function openPlanetCard(planetId) {
   playClick()
   
@@ -217,6 +231,74 @@ function closePlanetCard() {
   }, 300) // Затримка для завершення анімації
 }
 
+// Анімація польоту ракети між двома планетами з параболічною траєкторією
+function startRocketFlight(targetPlanetId) {
+  const startPos = getRocketAnchorPosition(currentRocketPlanetId.value)
+  const targetPos = getRocketAnchorPosition(targetPlanetId)
+
+  if (!startPos || !targetPos) return
+
+  // Якщо клікаємо на ту ж саму планету – просто відкриваємо картку без польоту
+  if (
+    currentRocketPlanetId.value === targetPlanetId &&
+    Math.abs(startPos.x - targetPos.x) < 0.5 &&
+    Math.abs(startPos.y - targetPos.y) < 0.5
+  ) {
+    openPlanetCard(targetPlanetId)
+    return
+  }
+
+  // Скасовуємо попередню анімацію, якщо була
+  if (rocketAnimationFrameId !== null) {
+    cancelAnimationFrame(rocketAnimationFrameId)
+    rocketAnimationFrameId = null
+  }
+
+  isRocketFlying.value = true
+  isRocketVisible.value = true
+
+  const duration = 1600 // тривалість польоту в мс
+  const distance = Math.hypot(targetPos.x - startPos.x, targetPos.y - startPos.y)
+  const parabolaHeight = distance * 0.25
+
+  const startTime = performance.now()
+
+  const animate = (time) => {
+    let t = (time - startTime) / duration
+    if (t < 0) t = 0
+    if (t > 1) t = 1
+
+    // Легке ease-in-out, щоб старт/приземлення були плавні
+    const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t
+
+    const x = startPos.x + (targetPos.x - startPos.x) * eased
+
+    const baseY = startPos.y + (targetPos.y - startPos.y) * eased
+    const parabolaOffset = -4 * parabolaHeight * eased * (1 - eased)
+    const y = baseY + parabolaOffset
+
+    rocketX.value = x
+    rocketY.value = y
+
+    if (t < 1) {
+      rocketAnimationFrameId = requestAnimationFrame(animate)
+    } else {
+      rocketAnimationFrameId = null
+      isRocketFlying.value = false
+      currentRocketPlanetId.value = targetPlanetId
+
+      // Гарантуємо точну фінальну позицію
+      rocketX.value = targetPos.x
+      rocketY.value = targetPos.y
+
+      // Після завершення польоту відкриваємо картку планети
+      openPlanetCard(targetPlanetId)
+    }
+  }
+
+  rocketAnimationFrameId = requestAnimationFrame(animate)
+}
+
 // Ініціалізація ракети на Землі
 async function initializeRocket() {
   await nextTick()
@@ -225,14 +307,11 @@ async function initializeRocket() {
   await new Promise(resolve => setTimeout(resolve, 100))
   
   // Діагностика: перевіряємо всі планети
-  const earthPos = getPlanetPosition('earth')
+  const earthPos = getRocketAnchorPosition('earth')
   if (earthPos) {
-    // getBoundingClientRect() повертає координати ВЖЕ з урахуванням scale(...)
-    // а left/top у стилі ракети задаються в НЕмасштабованій системі координат контейнера.
-    // Тому конвертуємо назад у "логічні" координати, поділивши на scaleFactor.
-    const safeScale = scaleFactor.value || 1
-    rocketX.value = earthPos.x / safeScale
-    rocketY.value = (earthPos.y - 80) / safeScale // 80px вище центру
+    rocketX.value = earthPos.x
+    rocketY.value = earthPos.y
+    currentRocketPlanetId.value = 'earth'
     isRocketVisible.value = true
   } else {
     console.warn('⚠️ Could not find Earth position')
