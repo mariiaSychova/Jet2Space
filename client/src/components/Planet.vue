@@ -11,7 +11,7 @@
     <div 
       class="planet-wrapper" 
       :style="wrapperStyle" 
-      @click="goToPlanetDetail" 
+      @click="goToPlanetDetail($event)" 
       @mouseenter="handleMouseEnter"
       @mouseleave="handleMouseLeave" 
       :title="`Клікніть, щоб дізнатися більше про ${planet.name}`"
@@ -202,7 +202,13 @@ function handleMouseLeave() {
   }
 }
 
-function goToPlanetDetail() {
+function goToPlanetDetail(event) {
+  // Якщо затиснута Ctrl / Cmd / Shift – використовуємо клік тільки як "замір координат"
+  if (event && (event.ctrlKey || event.metaKey || event.shiftKey)) {
+    // Не відкриваємо картку планети
+    event.stopPropagation()
+    return
+  }
   playClick()
   emit('planet-click', props.planet.id)
 }

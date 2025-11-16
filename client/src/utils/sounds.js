@@ -182,3 +182,94 @@ export async function playHover() {
     console.error('Error playing hover sound:', error);
   }
 }
+
+// Звуки польоту ракети
+let rocketEngineSource = null;
+let rocketEngineGainNode = null;
+
+// Генеруємо звук двигуна ракети програмно (якщо немає файлу)
+function generateRocketEngineSound() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  
+  const oscillator1 = audioCtx.createOscillator();
+  const oscillator2 = audioCtx.createOscillator();
+  const gainNode1 = audioCtx.createGain();
+  const gainNode2 = audioCtx.createGain();
+  const masterGain = audioCtx.createGain();
+  
+  // Низький гул
+  oscillator1.type = 'sawtooth';
+  oscillator1.frequency.value = 80;
+  gainNode1.gain.value = 0.3;
+  
+  // Високий свист
+  oscillator2.type = 'square';
+  oscillator2.frequency.value = 200;
+  gainNode2.gain.value = 0.1;
+  
+  // Майстер-гейн
+  masterGain.gain.value = 0.15;
+  
+  oscillator1.connect(gainNode1);
+  oscillator2.connect(gainNode2);
+  gainNode1.connect(masterGain);
+  gainNode2.connect(masterGain);
+  masterGain.connect(audioCtx.destination);
+  
+  return { oscillator1, oscillator2, masterGain };
+}
+
+export async function playRocketEngine() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+    
+    // Зупиняємо попереднє відтворення
+    stopRocketEngine();
+    
+    const soundGen = generateRocketEngineSound();
+    soundGen.oscillator1.start(0);
+    soundGen.oscillator2.start(0);
+    
+    rocketEngineSource = soundGen.oscillator1;
+    rocketEngineGainNode = soundGen.masterGain;
+    
+    // Зберігаємо посилання на другий осцилятор для зупинки
+    soundGen.oscillator1._secondOscillator = soundGen.oscillator2;
+  } catch (error) {
+    console.error('Error playing rocket engine sound:', error);
+  }
+}
+
+export function stopRocketEngine() {
+  if (rocketEngineSource) {
+    try {
+      rocketEngineSource.stop();
+      if (rocketEngineSource._secondOscillator) {
+        rocketEngineSource._secondOscillator.stop();
+      }
+    } catch (e) {
+      // Ігноруємо помилки
+    }
+    rocketEngineSource = null;
+  }
+  if (rocketEngineGainNode) {
+    try {
+      rocketEngineGainNode.disconnect();
+    } catch (e) {
+      // Ігноруємо помилки
+    }
+    rocketEngineGainNode = null;
+  }
+}
+
+// Функція для зменшення гучності двигуна під час приземлення
+export function fadeRocketEngine(volume) {
+  if (rocketEngineGainNode) {
+    try {
+      rocketEngineGainNode.gain.value = volume * 0.15;
+    } catch (e) {
+      // Ігноруємо помилки
+    }
+  }
+}

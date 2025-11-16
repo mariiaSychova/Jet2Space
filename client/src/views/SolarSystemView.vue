@@ -7,13 +7,27 @@
       </div>
     </Transition>
 
-    <main class="planets-container" ref="containerRef" :class="{ 'loaded': isPageLoaded, 'card-open': isCardVisible }" :style="{ transform: `scale(${scaleFactor})` }">
+    <main 
+      class="planets-container" 
+      ref="containerRef" 
+      :class="{ 'loaded': isPageLoaded, 'card-open': isCardVisible }" 
+      :style="{ transform: `scale(${scaleFactor})` }"
+      @mousedown="handleContainerClick"
+      @click.stop="handleContainerClick"
+    >
       <Planet
         v-for="planet in planetData" 
         :key="planet.id" 
         :planet="planet"
         :is-card-open="isCardVisible"
-        @planet-click="openPlanetCard"
+        @planet-click="handlePlanetClick"
+      />
+      
+      <!-- Rocket Component -->
+      <Rocket
+        :x="rocketX"
+        :y="rocketY"
+        :is-visible="isRocketVisible"
       />
     </main>
 
@@ -33,10 +47,12 @@
 import { ref, computed, nextTick, onMounted, watch, inject } from 'vue'
 import Planet from '../../src/components/Planet.vue'
 import PlanetCard from '../../src/components/PlanetCard.vue'
+import Rocket from '../../src/components/Rocket.vue'
 import { planets } from '../data/planets'
 import { galaxyConfig } from '../utils/data.js'
 import { markPlanetAsVisited } from '../utils/logic.js'
-import {useWindowSize } from '@vueuse/core'
+import { useWindowSize } from '@vueuse/core'
+import { playClick } from '../utils/sounds.js'
 
 // Отримуємо starsReady через inject
 const starsReady = inject('starsReady', ref(false))
@@ -52,6 +68,11 @@ const selectedPlanetData = ref(null)
 const selectedPlanetId = ref(null)
 const isCardVisible = ref(false)
 const isPageLoaded = ref(false)
+
+// Rocket state
+const isRocketVisible = ref(false)
+const rocketX = ref(0)
+const rocketY = ref(0)
 
 const planetGap = 60
 const idealContainerWidth = computed(() => {
@@ -91,17 +112,81 @@ const scaleFactor = computed(() => {
   return Math.max(calculatedScale, 0.2) // Мінімум 20% масштаб
 })
 
+// Отримуємо позицію планети відносно контейнера планет
+function getPlanetPosition(planetId) {
+  if (!containerRef.value) return null
+  
+  const planetContainer = containerRef.value.querySelector(`[data-planet-id="${planetId}"]`)
+  if (!planetContainer) return null
+  
+  // Знаходимо planet-wrapper - це фактичний елемент планети
+  const planetWrapper = planetContainer.querySelector('.planet-wrapper')
+  if (!planetWrapper) {
+    // Якщо wrapper не знайдено, використовуємо сам container
+    const containerRect = containerRef.value.getBoundingClientRect()
+    const rect = planetContainer.getBoundingClientRect()
+    return {
+      x: rect.left + rect.width / 2 - containerRect.left,
+      y: rect.top + rect.height / 2 - containerRect.top
+    }
+  }
+  
+  // Отримуємо позиції відносно viewport
+  const wrapperRect = planetWrapper.getBoundingClientRect()
+  const containerRect = containerRef.value.getBoundingClientRect()
+  
+  // Обчислюємо центр wrapper відносно контейнера
+  // Оскільки обидва елементи всередині масштабованого контейнера,
+  // координати з getBoundingClientRect() вже враховують масштаб
+  const centerX = wrapperRect.left + wrapperRect.width / 2 - containerRect.left
+  const centerY = wrapperRect.top + wrapperRect.height / 2 - containerRect.top
+  
+  return {
+    x: centerX,
+    y: centerY
+  }
+}
+
+// Обробка кліку на контейнер для обчислення координат
+function handleContainerClick(event) {
+  // Зупиняємо подію, якщо клік був на планеті (вони обробляють свій клік)
+  if (event.target.closest('.planet-container')) {
+    return
+  }
+  
+  // Якщо картка відкрита, не обробляємо кліки
+  if (isCardVisible.value) {
+    return
+  }
+  
+  if (!containerRef.value) {
+    console.warn('⚠️ Container ref not available')
+    return
+  }
+  
+  const containerRect = containerRef.value.getBoundingClientRect()
+  
+  // Обчислюємо координати кліку відносно контейнера
+  const x = event.clientX - containerRect.left
+  const y = event.clientY - containerRect.top
+  
+  // Тут можна при потребі тимчасово логувати координати кліку
+}
+
+// Обробка кліку на планету
+function handlePlanetClick(planetId) {
+  openPlanetCard(planetId)
+}
+
+// Відкриття картки планети
 async function openPlanetCard(planetId) {
-  console.log('openPlanetCard called with planetId:', planetId)
+  playClick()
   
   // Знаходимо дані планети з galaxyConfig
   const planetInfo = galaxyConfig[planetId]
-  console.log('planetInfo found:', planetInfo)
-  console.log('Available keys in galaxyConfig:', Object.keys(galaxyConfig))
   
   if (!planetInfo) {
     console.error('Planet not found in galaxyConfig for ID:', planetId)
-    console.error('Expected one of:', Object.keys(galaxyConfig))
     return
   }
   
@@ -120,10 +205,6 @@ async function openPlanetCard(planetId) {
   
   // Блокуємо скрол сторінки під час відкриття картки
   document.body.style.overflow = 'hidden'
-  
-  console.log('Card opened for planet:', planetInfo.name)
-  console.log('isCardVisible:', isCardVisible.value)
-  console.log('selectedPlanetData:', selectedPlanetData.value)
 }
 
 function closePlanetCard() {
@@ -136,12 +217,38 @@ function closePlanetCard() {
   }, 300) // Затримка для завершення анімації
 }
 
+// Ініціалізація ракети на Землі
+async function initializeRocket() {
+  await nextTick()
+  
+  // Додаємо невелику затримку, щоб DOM точно відрендерився
+  await new Promise(resolve => setTimeout(resolve, 100))
+  
+  // Діагностика: перевіряємо всі планети
+  const earthPos = getPlanetPosition('earth')
+  if (earthPos) {
+    // getBoundingClientRect() повертає координати ВЖЕ з урахуванням scale(...)
+    // а left/top у стилі ракети задаються в НЕмасштабованій системі координат контейнера.
+    // Тому конвертуємо назад у "логічні" координати, поділивши на scaleFactor.
+    const safeScale = scaleFactor.value || 1
+    rocketX.value = earthPos.x / safeScale
+    rocketY.value = (earthPos.y - 80) / safeScale // 80px вище центру
+    isRocketVisible.value = true
+  } else {
+    console.warn('⚠️ Could not find Earth position')
+  }
+}
+
 // Завантаження сторінки - чекаємо поки зірки будуть готові
 watch(starsReady, (ready) => {
   if (ready) {
     // Після того, як зірки готові, показуємо сторінку з невеликою затримкою
     setTimeout(() => {
       isPageLoaded.value = true
+      // Ініціалізуємо ракету на Землі
+      nextTick(() => {
+        initializeRocket()
+      })
     }, 200)
   }
 }, { immediate: true })
@@ -151,8 +258,15 @@ onMounted(() => {
   setTimeout(() => {
     if (!starsReady.value) {
       isPageLoaded.value = true
+      // Ініціалізуємо ракету на Землі
+      nextTick(() => {
+        initializeRocket()
+      })
     }
   }, 8000)
+  
+  // Додаємо глобальний обробник кліку для діагностики (Ctrl+Click)
+  // Глобальний діагностичний обробник Ctrl+Click більше не потрібен
 })
 
 </script>
