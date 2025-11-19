@@ -20,17 +20,6 @@ export const galaxyConfig = {
     image: sunImg,
     sound: "/sounds/...",
     video: "https://www.youtube.com/embed/2HoTK_Gqi2Q?si=dnCq7m74puuhBnib", // Сонце - NASA відео
-    quiz: [
-      {
-        question: "Яка температура на поверхні Сонця?",
-        options: {
-          a: "Близько 5 500°C",
-          b: "Близько 10 000°C",
-          c: "Близько 1 000°C",
-        },
-        answer: "a",
-      },
-    ],
   },
   mercury: {
     name: "Меркурій",
@@ -42,17 +31,6 @@ export const galaxyConfig = {
     image: mercuryImg,
     sound: "/sounds/...",
     video: "https://www.youtube.com/embed/0KBjnNuhRHs?si=Z1ITrTJIkSVwCdVO", // Меркурій
-    quiz: [
-      {
-        question: "Яка найближча планета до Сонця?",
-        options: {
-          a: "Венера",
-          b: "Меркурій",
-          c: "Земля",
-        },
-        answer: "b",
-      },
-    ],
   },
   venus: {
     name: "Венера",
@@ -65,17 +43,6 @@ export const galaxyConfig = {
     image: venusImg,
     sound: "/sounds/...",
     video: "https://www.youtube.com/embed/BvXa1n9fjow?si=ly5vfRydhYhjvq7D", // Венера
-    quiz: [
-      {
-        question: "Чому Венеру називають «гарячою сестрою Землі»?",
-        options: {
-          a: "Тому що вона найближча до Землі",
-          b: "Тому що вона такого ж розміру як Земля",
-          c: "Тому що парниковий ефект робить її дуже гарячою",
-        },
-        answer: "c",
-      },
-    ],
   },
   earth: {
     name: "Земля",
@@ -88,17 +55,6 @@ export const galaxyConfig = {
     image: earthImg,
     sound: "/sounds/...",
     video: "https://www.youtube.com/embed/HCDVN7DCzYE?si=tTszM52k63HeQTrf", // Земля
-    quiz: [
-      {
-        question: "Скільки відсотків поверхні Землі покрито водою?",
-        options: {
-          a: "71%",
-          b: "50%",
-          c: "90%",
-        },
-        answer: "a",
-      },
-    ],
   },
   mars: {
     name: "Марс",
@@ -110,17 +66,6 @@ export const galaxyConfig = {
     image: marsImg,
     sound: "/sounds/...",
     video: "https://www.youtube.com/embed/E-PuUs25rJA?si=2o7d3LipGodP-oD5", // Марс
-    quiz: [
-      {
-        question: "Яка найвища гора в Сонячній системі знаходиться на Марсі?",
-        options: {
-          a: "Еверест",
-          b: "Олімп",
-          c: "Кіліманджаро",
-        },
-        answer: "b",
-      },
-    ],
   },
   jupiter: {
     name: "Юпітер",
@@ -132,17 +77,6 @@ export const galaxyConfig = {
     image: jupiterImg,
     sound: "/sounds/...",
     video: "https://www.youtube.com/embed/PtkqwslbLY8?si=jbL2jx0NZ7WGZ-AT", // Юпітер
-    quiz: [
-      {
-        question: "Яка планета є найбільшою в Сонячній системі?",
-        options: {
-          a: "Сатурн",
-          b: "Нептун",
-          c: "Юпітер",
-        },
-        answer: "c",
-      },
-    ],
   },
   saturn: {
     name: "Сатурн",
@@ -154,17 +88,6 @@ export const galaxyConfig = {
     image: saturnImg,
     sound: "/sounds/...",
     video: "https://www.youtube.com/embed/epZdZaEQhS0?si=JbnC5R0LIaO83Xbw", // Сатурн
-    quiz: [
-      {
-        question: "З чого складаються кільця Сатурна?",
-        options: {
-          a: "З льодових і кам'яних частинок",
-          b: "З газів",
-          c: "З металу",
-        },
-        answer: "a",
-      },
-    ],
   },
   uranus: {
     name: "Уран",
@@ -177,17 +100,6 @@ export const galaxyConfig = {
     image: uranusImg,
     sound: "/sounds/...",
     video: "https://www.youtube.com/embed/m4NXbFOiOGk?si=b2AgqX3KqMQ8KF6W", // Уран
-    quiz: [
-      {
-        question: "Чому Уран має блакитний відтінок?",
-        options: {
-          a: "Через воду на поверхні",
-          b: "Через метан в атмосфері",
-          c: "Через відбивання світла",
-        },
-        answer: "b",
-      },
-    ],
   },
   neptune: {
     name: "Нептун",
@@ -200,17 +112,6 @@ export const galaxyConfig = {
     image: neptuneImg,
     sound: "/sounds/...",
     video: "https://www.youtube.com/embed/NStn7zZKXfE?si=wuREsFQ1Ru44jRMq", // Нептун
-    quiz: [
-      {
-        question: "Яка швидкість вітрів на Нептуні може сягати?",
-        options: {
-          a: "500 км/год",
-          b: "1 000 км/год",
-          c: "2 000 км/год",
-        },
-        answer: "c",
-      },
-    ],
   },
 };
 export const localStorage_userProgress_key = "user-progress";

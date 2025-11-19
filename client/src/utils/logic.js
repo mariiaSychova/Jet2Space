@@ -21,8 +21,20 @@ const saveLocalStorageVisitedPlanets = (visited) => {
   return visited
 }
 
-export const getPlanetData = (planet) => {
-  return galaxyConfig[planet]
+export const getPlanetData = async (planet) => {
+  const planetData = galaxyConfig[planet]
+  const question = await fetch('http://127.0.0.1:5000/generate-question', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      description: planetData.description,
+      facts: planetData.facts,
+    }),
+  })
+
+  return { ...planetData, quiz: [question] }
 }
 export const getRandomQuestionFromQuiz = (quiz) => {
   return quiz[0]
