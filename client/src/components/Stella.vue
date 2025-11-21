@@ -17,6 +17,11 @@
         alt="Стелла"
         class="stella-image"
         :class="{ 'speaking': isSpeaking }"
+        fetchpriority="high"
+        loading="eager"
+        decoding="async"
+        width="200"
+        height="200"
       />
       
       <!-- Ефект світіння при розмові -->
@@ -143,6 +148,25 @@ export default {
       this.speak(dialogueKey, messages[dialogueKey])
     }
   },
+  mounted() {
+    // Preload both images immediately when component mounts
+    const preloadImage = (src) => {
+      const link = document.createElement('link')
+      link.rel = 'preload'
+      link.as = 'image'
+      link.href = src
+      link.fetchPriority = 'high'
+      document.head.appendChild(link)
+      
+      // Also create Image object to force browser to fetch
+      const img = new Image()
+      img.src = src
+    }
+    
+    // Preload both images
+    preloadImage(stellaClosed)
+    preloadImage(stellaOpen)
+  },
   beforeUnmount() {
     this.clearIntervals()
   }
@@ -224,6 +248,7 @@ export default {
   font-size: 16px;
   line-height: 1.6;
   font-weight: 500;
+  font-family: 'Nunito', sans-serif;
 }
 
 .cursor {
