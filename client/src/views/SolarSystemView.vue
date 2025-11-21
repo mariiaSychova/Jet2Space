@@ -56,7 +56,7 @@ import Rocket from '../../src/components/Rocket.vue'
 import Stella from '../../src/components/Stella.vue'
 import { planets } from '../data/planets'
 import { galaxyConfig } from '../utils/data.js'
-import { markPlanetAsVisited } from '../utils/logic.js'
+import { markPlanetAsVisited, getPlanetData } from '../utils/logic.js'
 import { useWindowSize } from '@vueuse/core'
 import { playClick } from '../utils/sounds.js'
 
@@ -198,6 +198,20 @@ function handleContainerClick(event) {
 function handlePlanetClick(planetId) {
   // Під час польоту ігноруємо нові кліки
   if (isRocketFlying.value) return
+  
+  // Якщо картка відкрита, спочатку закриваємо її
+  if (isCardVisible.value) {
+    isCardVisible.value = false
+    selectedPlanetData.value = null
+    selectedPlanetId.value = null
+    document.body.style.overflow = 'auto'
+    // Чекаємо, поки картка закриється перед початком нового польоту
+    setTimeout(() => {
+      startRocketFlight(planetId)
+    }, 350) // Трохи більше, ніж затримка закриття (300ms)
+    return
+  }
+  
   startRocketFlight(planetId)
 }
 
@@ -205,34 +219,54 @@ function handlePlanetClick(planetId) {
 async function openPlanetCard(planetId) {
   playClick()
   
-  // Знаходимо дані планети з galaxyConfig
-  const planetInfo = galaxyConfig[planetId]
+  // Якщо картка вже відкрита, спочатку закриваємо її
+  if (isCardVisible.value) {
+    isCardVisible.value = false
+    selectedPlanetData.value = null
+    selectedPlanetId.value = null
+    // Чекаємо, поки попередня картка закриється
+    await new Promise(resolve => setTimeout(resolve, 350))
+  }
   
-  if (!planetInfo) {
+  // Спочатку отримуємо базові дані планети без тесту
+  const basePlanetData = galaxyConfig[planetId]
+  
+  if (!basePlanetData) {
     console.error('Planet not found in galaxyConfig for ID:', planetId)
     return
   }
   
-  // Встановлюємо дані планети
+  // Встановлюємо базові дані планети одразу (без тесту)
   selectedPlanetId.value = planetId
-  selectedPlanetData.value = planetInfo
+  selectedPlanetData.value = { ...basePlanetData, quiz: [] }
   
   // Позначаємо планету як відвідану
   markPlanetAsVisited(planetId)
   
-  // Чекаємо, поки Vue оновить DOM
-  await nextTick()
-  
-  // Після того, як компонент відрендерився, показуємо картку
+  // Показуємо картку ОДРАЗУ (не чекаємо на nextTick)
   isCardVisible.value = true
+  
+  // Чекаємо, поки Vue оновить DOM (асинхронно, не блокуємо відображення)
+  nextTick()
+  
+  // Блокуємо скрол сторінки під час відкриття картки
+  document.body.style.overflow = 'hidden'
   
   // Стелла каже про подорож
   if (stella.value) {
     stella.value.speak('traveling')
   }
   
-  // Блокуємо скрол сторінки під час відкриття картки
-  document.body.style.overflow = 'hidden'
+  // АСИНХРОННО завантажуємо питання в фоні і оновлюємо дані
+  getPlanetData(planetId).then((planetInfoWithQuiz) => {
+    if (planetInfoWithQuiz && selectedPlanetId.value === planetId) {
+      // Оновлюємо дані планети з питанням тільки якщо картка все ще відкрита для цієї планети
+      selectedPlanetData.value = planetInfoWithQuiz
+    }
+  }).catch((error) => {
+    console.warn('Failed to load quiz question:', error)
+    // Якщо не вдалося завантажити питання, залишаємо картку без тесту
+  })
 }
 
 function closePlanetCard() {
@@ -240,8 +274,11 @@ function closePlanetCard() {
   // Повертаємо скрол після закриття картки
   setTimeout(() => {
     document.body.style.overflow = 'auto'
-    selectedPlanetData.value = null
-    selectedPlanetId.value = null
+    // Очищаємо дані тільки якщо картка дійсно закрита і не відкривається нова
+    if (!isCardVisible.value) {
+      selectedPlanetData.value = null
+      selectedPlanetId.value = null
+    }
   }, 300) // Затримка для завершення анімації
 }
 

@@ -23,18 +23,38 @@ const saveLocalStorageVisitedPlanets = (visited) => {
 
 export const getPlanetData = async (planet) => {
   const planetData = galaxyConfig[planet]
-  const question = await fetch('http://127.0.0.1:5000/generate-question', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      description: planetData.description,
-      facts: planetData.facts,
-    }),
-  })
+  
+  try {
+    const response = await fetch('http://127.0.0.1:5000/generate-question', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        description: planetData.description,
+        facts: planetData.facts,
+      }),
+    })
 
-  return { ...planetData, quiz: [question] }
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: response.statusText }))
+      throw new Error(`Failed to generate question: ${errorData.error || response.statusText}`)
+    }
+
+    const question = await response.json()
+    
+    // Перевіряємо, чи є помилка в відповіді
+    if (question.error) {
+      throw new Error(question.error)
+    }
+    
+    // Повертаємо дані планети з доданим питанням
+    return { ...planetData, quiz: [question] }
+  } catch (error) {
+    // Якщо помилка мережі або сервер недоступний, повертаємо дані без тесту
+    console.warn('Failed to fetch question from server, using planet data without quiz:', error.message)
+    return { ...planetData, quiz: [] }
+  }
 }
 export const getRandomQuestionFromQuiz = (quiz) => {
   return quiz[0]

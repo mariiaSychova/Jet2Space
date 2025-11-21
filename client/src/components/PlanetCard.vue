@@ -106,12 +106,20 @@
           </div>
 
           <!-- Quiz Section -->
-          <div v-if="planetData.quiz && planetData.quiz.length > 0" class="quiz-section">
+          <div v-if="shouldShowQuizSection" class="quiz-section" ref="quizSectionRef">
             <h3 class="section-title">
               <span class="icon">🧩</span>
               Вікторина
             </h3>
-            <div v-if="currentQuestion" class="quiz-content">
+            
+            <!-- Екран завантаження -->
+            <div v-if="isQuizLoading" class="quiz-loading">
+              <div class="loading-spinner"></div>
+              <p class="loading-text">Генеруємо питання для тесту...</p>
+            </div>
+            
+            <!-- Контент вікторини -->
+            <div v-else-if="currentQuestion" class="quiz-content" ref="quizContentRef">
               <p class="quiz-question">{{ currentQuestion.question }}</p>
               <div class="quiz-options">
                 <button
@@ -120,13 +128,13 @@
                   class="quiz-option"
                   :class="{
                     'selected': selectedAnswer === key,
-                    'correct': isAnswered && key === currentQuestion.answer,
-                    'incorrect': isAnswered && selectedAnswer === key && selectedAnswer !== currentQuestion.answer,
-                    'disabled': isAnswered
+                    'correct': isAnswered && attemptsLeft === 0 && key === currentQuestion.answer,
+                    'incorrect': isAnswered && attemptsLeft === 0 && selectedAnswer === key && selectedAnswer !== currentQuestion.answer,
+                    'disabled': isAnswered && attemptsLeft === 0
                   }"
                   @mouseenter="playHover"
                   @click="() => { playClick(); selectAnswer(key); }"
-                  :disabled="isAnswered"
+                  :disabled="isAnswered && attemptsLeft === 0"
                 >
                   <span class="option-label">{{ key.toUpperCase() }}.</span>
                   <span class="option-text">{{ option }}</span>
@@ -136,9 +144,33 @@
                 <p v-if="isCorrect" class="result-message correct-message">
                   ✅ Правильно! Відмінна робота!
                 </p>
+                <p v-else-if="attemptsLeft > 0" class="result-message incorrect-message">
+                  ❌ Неправильно. У тебе залишилося {{ attemptsLeft }} {{ attemptsLeft === 1 ? 'спроба' : 'спроби' }}.
+                </p>
                 <p v-else class="result-message incorrect-message">
                   ❌ Неправильно. Правильна відповідь: {{ currentQuestion.options[currentQuestion.answer] }}
                 </p>
+              </div>
+              
+              <!-- Кнопка перезавантаження та інформація про спроби -->
+              <div class="quiz-controls">
+                <div v-if="attemptsLeft > 0 && !isCorrect && isAnswered" class="quiz-attempts-info">
+                  <span class="attempts-text">Спроби: {{ 2 - attemptsLeft + 1 }}/2</span>
+                </div>
+                <button 
+                  v-if="isAnswered && (attemptsLeft === 0 || isCorrect)" 
+                  class="quiz-reset-button"
+                  @mouseenter="playHover"
+                  @click="handleResetQuiz"
+                >
+                  <span>🔄</span> Спробувати ще раз
+                </button>
+              </div>
+              
+              <!-- Таймер -->
+              <div v-if="timeRemaining > 0" class="quiz-timer">
+                <div class="timer-bar" :style="{ width: Math.max(0, Math.min(100, (timeRemaining / 30) * 100)) + '%' }"></div>
+                <span class="timer-text">{{ Math.ceil(timeRemaining) }}с</span>
               </div>
             </div>
           </div>
@@ -192,7 +224,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { getCachedStars, getCachedAnimatedStars } from '../utils/starBackground.js'
 import { getRandomQuestionFromQuiz, validateQuizResponse, updateUserProgress, checkUserForBadge } from '../utils/logic.js'
 import { playHover, playClick } from '../utils/sounds'
@@ -213,6 +245,10 @@ const props = defineProps({
 })
 
 const planetVideo = ref(null)
+const quizContentRef = ref(null)
+const quizSectionRef = ref(null)
+const isQuizSectionVisible = ref(false)
+let quizObserver = null
 
 // Функція для визначення, чи це YouTube посилання
 function isYouTubeLink(url) {
@@ -315,6 +351,16 @@ function playSound() {
 }
 
 // Quiz state
+const isQuizLoading = computed(() => {
+  // Завантаження, якщо quiz ще не завантажений (undefined або порожній масив)
+  return !props.planetData.quiz || props.planetData.quiz.length === 0
+})
+
+const shouldShowQuizSection = computed(() => {
+  // Показуємо секцію, якщо завантажується або вже завантажено
+  return isQuizLoading.value || (props.planetData.quiz && props.planetData.quiz.length > 0)
+})
+
 const currentQuestion = computed(() => {
   if (props.planetData.quiz && props.planetData.quiz.length > 0) {
     return getRandomQuestionFromQuiz(props.planetData.quiz)
@@ -325,16 +371,31 @@ const currentQuestion = computed(() => {
 const selectedAnswer = ref(null)
 const isAnswered = ref(false)
 const isCorrect = ref(false)
+const attemptsLeft = ref(2) // Дві спроби
+const timeRemaining = ref(30) // 30 секунд на відповідь
+let timerInterval = null
+let timerAnimationFrame = null
 
 function selectAnswer(answerKey) {
-  if (isAnswered.value) return
+  if (isAnswered.value && attemptsLeft.value === 0) return
   
   selectedAnswer.value = answerKey
   isAnswered.value = true
-  isCorrect.value = validateQuizResponse(currentQuestion.value, answerKey)
+  const correct = validateQuizResponse(currentQuestion.value, answerKey)
+  isCorrect.value = correct
+  
+  // Зменшуємо кількість спроб, якщо відповідь неправильна
+  if (!correct) {
+    attemptsLeft.value--
+  }
+  
+  // Зупиняємо таймер, якщо відповідь правильна або спроби закінчилися
+  if (correct || attemptsLeft.value === 0) {
+    stopTimer()
+  }
   
   // Оновлюємо прогрес користувача, якщо відповідь правильна
-  if (isCorrect.value && props.planetId) {
+  if (correct && props.planetId) {
     updateUserProgress(props.planetId)
     // Перевіряємо, чи користувач заслужив бейдж
     if (checkUserForBadge()) {
@@ -343,6 +404,65 @@ function selectAnswer(answerKey) {
         emit('badge-earned')
       }, 500)
     }
+  } else if (!correct && attemptsLeft.value > 0) {
+    // Якщо неправильно, але є спроби - дозволяємо спробувати ще раз через 2 секунди
+    setTimeout(() => {
+      isAnswered.value = false
+      selectedAnswer.value = null
+    }, 2000)
+  }
+}
+
+// Таймер
+function startTimer() {
+  // Не запускаємо таймер, якщо секція тесту не видима
+  if (!isQuizSectionVisible.value) {
+    return
+  }
+  
+  stopTimer() // Зупиняємо попередній таймер, якщо є
+  timeRemaining.value = 30
+  
+  timerInterval = setInterval(() => {
+    // Зупиняємо таймер тільки якщо картка закрита або секція не видима
+    if (!props.isVisible || !isQuizSectionVisible.value) {
+      stopTimer()
+      return
+    }
+    
+    // Зупиняємо таймер якщо відповідь правильна
+    if (isAnswered.value && isCorrect.value) {
+      stopTimer()
+      return
+    }
+    
+    // Зупиняємо таймер якщо спроби закінчилися і відповідь неправильна
+    if (isAnswered.value && attemptsLeft.value === 0 && !isCorrect.value) {
+      stopTimer()
+      return
+    }
+    
+    // Зменшуємо час (навіть якщо відповідь дана, але є спроби)
+    timeRemaining.value = Math.max(0, timeRemaining.value - 0.1)
+    
+    if (timeRemaining.value <= 0) {
+      // Час вийшов - скидаємо відповіді з анімацією
+      if (!isAnswered.value || (isAnswered.value && attemptsLeft.value > 0)) {
+        resetQuizWithAnimation()
+      }
+      stopTimer()
+    }
+  }, 100) // Оновлюємо кожні 100мс для плавності
+}
+
+function stopTimer() {
+  if (timerAnimationFrame) {
+    cancelAnimationFrame(timerAnimationFrame)
+    timerAnimationFrame = null
+  }
+  if (timerInterval) {
+    clearInterval(timerInterval)
+    timerInterval = null
   }
 }
 
@@ -351,11 +471,149 @@ function resetQuizState() {
   selectedAnswer.value = null
   isAnswered.value = false
   isCorrect.value = false
+  attemptsLeft.value = 2
+  timeRemaining.value = 30
+  stopTimer()
+}
+
+// Обробник кнопки перезавантаження
+function handleResetQuiz() {
+  playClick()
+  resetQuiz()
+}
+
+// Перезавантаження тесту з анімацією
+function resetQuiz() {
+  // Зупиняємо таймер
+  stopTimer()
+  
+  // Перевіряємо, чи є питання перед скиданням
+  if (!currentQuestion.value) {
+    console.warn('No question available to reset')
+    return
+  }
+  
+  // Плавна анімація зникнення
+  if (quizContentRef.value) {
+    quizContentRef.value.style.transition = 'opacity 0.3s ease, transform 0.3s ease'
+    quizContentRef.value.style.opacity = '0'
+    quizContentRef.value.style.transform = 'translateY(-10px)'
+  }
+  
+  setTimeout(() => {
+    // Скидаємо стан
+    selectedAnswer.value = null
+    isAnswered.value = false
+    isCorrect.value = false
+    attemptsLeft.value = 2
+    timeRemaining.value = 30
+    
+    // Плавна анімація появи
+    nextTick(() => {
+      // Перевіряємо, чи питання все ще існує
+      if (!currentQuestion.value) {
+        console.warn('Question disappeared after reset')
+        return
+      }
+      
+      if (quizContentRef.value) {
+        // Спочатку встановлюємо стилі для анімації (невидимий стан)
+        quizContentRef.value.style.opacity = '0'
+        quizContentRef.value.style.transform = 'translateY(-10px)'
+        
+        // Потім через невелику затримку запускаємо анімацію появи
+        setTimeout(() => {
+          if (quizContentRef.value && currentQuestion.value) {
+            quizContentRef.value.style.transition = 'opacity 0.3s ease, transform 0.3s ease'
+            quizContentRef.value.style.opacity = '1'
+            quizContentRef.value.style.transform = 'translateY(0)'
+          }
+        }, 50)
+      }
+      
+      // Запускаємо таймер знову
+      if (currentQuestion.value && props.isVisible) {
+        setTimeout(() => {
+          startTimer()
+        }, 100)
+      }
+    })
+  }, 300)
+}
+
+// Скидання з анімацією при закінченні часу
+function resetQuizWithAnimation() {
+  // Плавна анімація зникнення
+  const quizContent = document.querySelector('.quiz-content')
+  if (quizContent) {
+    quizContent.style.transition = 'opacity 0.5s ease, transform 0.5s ease'
+    quizContent.style.opacity = '0'
+    quizContent.style.transform = 'translateY(-10px)'
+  }
+  
+  setTimeout(async () => {
+    resetQuizState()
+    startTimer() // Запускаємо таймер знову
+    // Плавна анімація появи
+    await nextTick()
+    if (quizContent) {
+      setTimeout(() => {
+        quizContent.style.transition = 'opacity 0.5s ease, transform 0.5s ease'
+        quizContent.style.opacity = '1'
+        quizContent.style.transform = 'translateY(0)'
+      }, 50)
+    }
+  }, 500)
 }
 
 watch(() => props.planetId, () => {
   resetQuizState()
 })
+
+// Налаштування Intersection Observer для відстеження видимості секції тесту
+function setupQuizObserver() {
+  if (!quizSectionRef.value) {
+    console.log('Quiz section ref not available')
+    return
+  }
+  
+  // Зупиняємо попередній observer, якщо є
+  if (quizObserver) {
+    quizObserver.disconnect()
+    quizObserver = null
+  }
+  
+  // Знаходимо контейнер картки для root
+  const cardContainer = quizSectionRef.value.closest('.planet-card-content-wrapper')
+  
+  quizObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        const wasVisible = isQuizSectionVisible.value
+        isQuizSectionVisible.value = entry.isIntersecting
+        
+        console.log('Quiz section visibility changed:', entry.isIntersecting, 'was:', wasVisible)
+        
+        // Якщо секція стала видимою і є питання, запускаємо таймер
+        if (entry.isIntersecting && currentQuestion.value && props.isVisible && !isAnswered.value) {
+          console.log('Starting timer because quiz section is visible')
+          startTimer()
+        } else if (!entry.isIntersecting && wasVisible) {
+          console.log('Stopping timer because quiz section is not visible')
+          stopTimer()
+        }
+      })
+    },
+    {
+      threshold: 0.1, // Секція вважається видимою, коли 10% її видно
+      rootMargin: '0px',
+      root: cardContainer || null // Використовуємо контейнер картки як root
+    }
+  )
+  
+  quizObserver.observe(quizSectionRef.value)
+  console.log('Quiz observer set up for section:', quizSectionRef.value)
+}
 
 // Додаємо обробник для клавіші ESC
 watch(() => props.isVisible, (isVisible) => {
@@ -363,13 +621,63 @@ watch(() => props.isVisible, (isVisible) => {
     document.addEventListener('keydown', handleEscape)
     // Скидаємо стан вікторини при відкритті картки
     resetQuizState()
+    isQuizSectionVisible.value = false // Спочатку секція не видима
+    // Налаштовуємо observer для секції тесту з затримкою, щоб DOM встиг оновитися
+    nextTick(() => {
+      setTimeout(() => {
+        if (currentQuestion.value) {
+          if (quizSectionRef.value) {
+            setupQuizObserver()
+          } else {
+            console.warn('Quiz section ref not found, retrying...')
+            // Повторна спроба через невелику затримку
+            setTimeout(() => {
+              if (quizSectionRef.value) {
+                setupQuizObserver()
+              }
+            }, 200)
+          }
+        }
+      }, 100)
+    })
     // Не відтворюємо відео автоматично - користувач сам запустить через controls
   } else {
     document.removeEventListener('keydown', handleEscape)
+    stopTimer() // Зупиняємо таймер при закритті
+    // Зупиняємо observer
+    if (quizObserver) {
+      quizObserver.disconnect()
+      quizObserver = null
+    }
+    isQuizSectionVisible.value = false
     // Зупиняємо відео при закритті картки (тільки для звичайних video, не YouTube)
     if (planetVideo.value && !isYouTubeVideo.value) {
       planetVideo.value.pause()
     }
+  }
+})
+
+// Запускаємо observer при зміні питання
+watch(() => currentQuestion.value, (newQuestion) => {
+  if (newQuestion && props.isVisible) {
+    resetQuizState()
+    isQuizSectionVisible.value = false // Скидаємо видимість при зміні питання
+    nextTick(() => {
+      setTimeout(() => {
+        if (quizSectionRef.value) {
+          setupQuizObserver()
+        }
+      }, 100)
+    })
+  }
+})
+
+// Відстежуємо видимість секції тесту і запускаємо таймер
+watch(() => isQuizSectionVisible.value, (isVisible) => {
+  if (isVisible && currentQuestion.value && props.isVisible && !isAnswered.value) {
+    startTimer()
+  } else if (!isVisible) {
+    stopTimer()
   }
 })
 
@@ -384,6 +692,12 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleEscape)
+  stopTimer() // Зупиняємо таймер при видаленні компонента
+  // Зупиняємо observer
+  if (quizObserver) {
+    quizObserver.disconnect()
+    quizObserver = null
+  }
 })
 </script>
 
@@ -783,14 +1097,16 @@ onUnmounted(() => {
   overflow: hidden;
   background: rgba(0, 0, 0, 0.3);
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .media-photo {
-  width: 100%;
+  max-width: 100%;
   height: auto;
   display: block;
-  object-fit: cover;
-  aspect-ratio: 16 / 9;
+  object-fit: contain; /* Змінив з cover на contain, щоб зображення не обрізалося */
   transition: transform 0.3s ease;
 }
 
@@ -863,6 +1179,41 @@ onUnmounted(() => {
 
 .quiz-content {
   font-family: 'Nunito', sans-serif;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.quiz-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  min-height: 300px;
+  font-family: 'Nunito', sans-serif;
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #ffd700;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+.loading-text {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1rem;
+  font-weight: 500;
+  text-align: center;
+  margin: 0;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .quiz-question {
@@ -966,6 +1317,104 @@ onUnmounted(() => {
   padding: 12px;
   border-radius: 8px;
   border: 1px solid rgba(248, 113, 113, 0.3);
+}
+
+.quiz-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+  gap: 15px;
+}
+
+.quiz-attempts-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.attempts-text {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+}
+
+.quiz-reset-button {
+  font-family: 'Nunito', sans-serif;
+  padding: 12px 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.quiz-reset-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 215, 0, 0.5);
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3);
+}
+
+.quiz-reset-button span {
+  font-size: 1.2rem;
+  animation: rotate 2s linear infinite;
+}
+
+.quiz-timer {
+  position: relative;
+  margin-top: 20px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.timer-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #4ade80 0%, #22c55e 50%, #fbbf24 80%, #f87171 100%);
+  border-radius: 14px;
+  transition: width 0.1s linear;
+  box-shadow: 0 0 15px rgba(74, 222, 128, 0.4);
+  animation: pulse-timer 2s ease-in-out infinite;
+}
+
+.timer-text {
+  position: relative;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: white;
+  text-shadow: 
+    0 0 10px rgba(0, 0, 0, 0.9),
+    0 2px 4px rgba(0, 0, 0, 0.5);
+  z-index: 2;
+  padding: 0 12px;
+  letter-spacing: 0.5px;
+}
+
+@keyframes pulse-timer {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(74, 222, 128, 0.8);
+  }
 }
 
 .card-decoration {
@@ -1146,6 +1595,21 @@ onUnmounted(() => {
 
   .media-button {
     width: 100%;
+  }
+
+  .quiz-controls {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .quiz-reset-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .quiz-timer {
+    margin-top: 15px;
   }
 }
 </style>
