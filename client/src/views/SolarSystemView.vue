@@ -41,6 +41,7 @@
       :is-visible="isCardVisible"
       @close="closePlanetCard"
       @badge-earned="handleBadgeEarned"
+      @update-planet-data="handlePlanetDataUpdate"
     />
 
     <!-- Stella Component -->
@@ -280,6 +281,14 @@ function closePlanetCard() {
       selectedPlanetId.value = null
     }
   }, 300) // Затримка для завершення анімації
+}
+
+// Обробник оновлення даних планети (наприклад, при генерації нового питання)
+function handlePlanetDataUpdate(updatedData) {
+  if (selectedPlanetId.value && selectedPlanetData.value) {
+    // Оновлюємо дані, створюючи новий об'єкт для реактивності Vue
+    selectedPlanetData.value = { ...updatedData }
+  }
 }
 
 // Анімація польоту ракети між двома планетами з параболічною траєкторією
