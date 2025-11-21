@@ -30,6 +30,11 @@
         :angle="rocketAngle"
         :is-visible="isRocketVisible"
         :is-landing="isRocketLanding"
+        :is-flying="isRocketFlying"
+        :is-taking-off="isRocketTakingOff"
+        :is-landing-start="isRocketLandingStart"
+        :is-shake-increasing="isRocketShakeIncreasing"
+        :is-shake-decreasing="isRocketShakeDecreasing"
       />
     </main>
 
@@ -100,6 +105,10 @@ const rocketAngle = ref(0) // у градусах
 const currentRocketPlanetId = ref('earth') // id планети, на якій зараз ракета
 const isRocketFlying = ref(false)
 const isRocketLanding = ref(false)
+const isRocketTakingOff = ref(false)
+const isRocketLandingStart = ref(false)
+const isRocketShakeIncreasing = ref(false)
+const isRocketShakeDecreasing = ref(false)
 let rocketAnimationFrameId = null
 
 const planetGap = 60
@@ -332,14 +341,28 @@ function startRocketFlight(targetPlanetId) {
     rocketAnimationFrameId = null
   }
 
-  isRocketFlying.value = true
+  isRocketFlying.value = false // Спочатку не літаємо
   isRocketVisible.value = true
   isRocketLanding.value = false
+  isRocketTakingOff.value = true // Починаємо злет
+  isRocketLandingStart.value = false
+  isRocketShakeIncreasing.value = false
+  isRocketShakeDecreasing.value = false
 
   // Стелла каже про подорож на початку польоту
   if (stella.value) {
     stella.value.speak('traveling')
   }
+
+  // Градієнтне збільшення трясіння при злеті
+  setTimeout(() => {
+    isRocketShakeIncreasing.value = true
+    setTimeout(() => {
+      isRocketTakingOff.value = false
+      isRocketShakeIncreasing.value = false
+      isRocketFlying.value = true // Повноцінний політ після переходу
+    }, 300) // Тривалість переходу
+  }, 100)
 
   // Фінальна позиція (після посадки)
   const finalPos = { ...targetPos }
@@ -439,6 +462,19 @@ function startRocketFlight(targetPlanetId) {
     prevX = x
     prevY = y
 
+    // Досягнули 95% польоту - починаємо зменшувати трясіння
+    if (t >= 0.95 && !isRocketLandingStart.value && isRocketFlying.value) {
+      isRocketLandingStart.value = true
+      isRocketShakeDecreasing.value = false
+      setTimeout(() => {
+        isRocketShakeDecreasing.value = true
+        setTimeout(() => {
+          isRocketFlying.value = false
+          isRocketShakeDecreasing.value = false
+        }, 300) // Тривалість переходу
+      }, 100)
+    }
+    
     if (t < 1) {
       rocketAnimationFrameId = requestAnimationFrame(animate)
     } else {
@@ -453,7 +489,10 @@ function startRocketFlight(targetPlanetId) {
 
 // Фаза зависання та посадки: ракета вирівнюється вертикально і повільно опускається
 function startRocketLanding(targetPlanetId, hoverPos, finalPos) {
-  isRocketLanding.value = true
+  isRocketLanding.value = false // Спочатку ще не посадка
+  isRocketLandingStart.value = true // Завершуємо зменшення трясіння
+  isRocketFlying.value = false
+  isRocketShakeDecreasing.value = true
 
   const hoverDuration = 500  // мс — час зависання і вирівнювання (трохи коротший)
   const landingDuration = 1200 // мс — повільний спуск
@@ -472,6 +511,13 @@ function startRocketLanding(targetPlanetId, hoverPos, finalPos) {
       rocketX.value = hoverPos.x
       rocketY.value = hoverPos.y
       rocketAngle.value = startAngle + (0 - startAngle) * eased
+
+      // Завершуємо зменшення трясіння в середині зависання
+      if (t >= 0.5 && isRocketShakeDecreasing.value) {
+        isRocketShakeDecreasing.value = false
+        isRocketLandingStart.value = false
+        isRocketLanding.value = true // Переходимо до посадки
+      }
 
       rocketAnimationFrameId = requestAnimationFrame(animateLanding)
       return
@@ -496,6 +542,10 @@ function startRocketLanding(targetPlanetId, hoverPos, finalPos) {
     rocketAnimationFrameId = null
     isRocketFlying.value = false
     isRocketLanding.value = false
+    isRocketTakingOff.value = false
+    isRocketLandingStart.value = false
+    isRocketShakeIncreasing.value = false
+    isRocketShakeDecreasing.value = false
     currentRocketPlanetId.value = targetPlanetId
 
     rocketX.value = finalPos.x
