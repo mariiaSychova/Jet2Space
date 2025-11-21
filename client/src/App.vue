@@ -34,7 +34,7 @@
 </template>
 
 <script setup>
-import { ref, provide, onMounted } from 'vue'
+import { ref, provide, onMounted, inject } from 'vue'
 import { RouterView } from 'vue-router'
 import StarryBackground from './components/StarryBackground.vue'
 import BadgeIcon from './components/BadgeIcon.vue'
@@ -76,6 +76,9 @@ function showBadgeModal() {
   }
 }
 
+// Отримуємо функцію для виклику completion діалогу Стели
+const stellaCompletion = inject('stellaCompletion', null)
+
 // Закрити модальне вікно з бейджем
 function closeBadgeModal() {
   showBadge.value = false
@@ -83,6 +86,13 @@ function closeBadgeModal() {
   setTimeout(() => {
     document.body.style.overflow = 'auto'
   }, 300)
+  
+  // Стелла каже про завершення експедиції після закриття бейджа
+  if (stellaCompletion) {
+    setTimeout(() => {
+      stellaCompletion()
+    }, 500)
+  }
 }
 
 // Надаємо starsReady через provide для доступу в дочірніх компонентах

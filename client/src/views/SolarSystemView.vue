@@ -40,7 +40,7 @@
       :planet-id="selectedPlanetId"
       :is-visible="isCardVisible"
       @close="closePlanetCard"
-      @badge-earned="handleBadgeEarned"
+      @badge-earned="handleBadgeEarnedWithStella"
       @update-planet-data="handlePlanetDataUpdate"
     />
 
@@ -50,7 +50,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, watch, inject } from 'vue'
+import { ref, computed, nextTick, onMounted, watch, inject, provide } from 'vue'
 import Planet from '../../src/components/Planet.vue'
 import PlanetCard from '../../src/components/PlanetCard.vue'
 import Rocket from '../../src/components/Rocket.vue'
@@ -66,6 +66,11 @@ const starsReady = inject('starsReady', ref(false))
 // Отримуємо функцію обробки отримання бейджа
 const handleBadgeEarned = inject('handleBadgeEarned', () => {})
 
+// Обробник отримання бейджа (без діалогу Стели - він буде викликаний після закриття BadgeAchievement)
+function handleBadgeEarnedWithStella() {
+  handleBadgeEarned()
+}
+
 const planetData = ref(planets)
 
 const containerRef = ref(null)
@@ -76,6 +81,16 @@ const selectedPlanetId = ref(null)
 const isCardVisible = ref(false)
 const isPageLoaded = ref(false)
 const stella = ref(null)
+
+// Provide Stella reference for child components
+provide('stella', stella)
+
+// Provide function to call completion dialogue
+provide('stellaCompletion', () => {
+  if (stella.value) {
+    stella.value.speak('completion')
+  }
+})
 
 // Rocket state
 const isRocketVisible = ref(false)
@@ -253,11 +268,6 @@ async function openPlanetCard(planetId) {
   // Блокуємо скрол сторінки під час відкриття картки
   document.body.style.overflow = 'hidden'
   
-  // Стелла каже про подорож
-  if (stella.value) {
-    stella.value.speak('traveling')
-  }
-  
   // АСИНХРОННО завантажуємо питання в фоні і оновлюємо дані
   getPlanetData(planetId).then((planetInfoWithQuiz) => {
     if (planetInfoWithQuiz && selectedPlanetId.value === planetId) {
@@ -272,6 +282,14 @@ async function openPlanetCard(planetId) {
 
 function closePlanetCard() {
   isCardVisible.value = false
+  
+  // Стелла каже про продовження подорожі
+  if (stella.value) {
+    setTimeout(() => {
+      stella.value.speak('continueJourney')
+    }, 500)
+  }
+  
   // Повертаємо скрол після закриття картки
   setTimeout(() => {
     document.body.style.overflow = 'auto'
@@ -317,6 +335,11 @@ function startRocketFlight(targetPlanetId) {
   isRocketFlying.value = true
   isRocketVisible.value = true
   isRocketLanding.value = false
+
+  // Стелла каже про подорож на початку польоту
+  if (stella.value) {
+    stella.value.speak('traveling')
+  }
 
   // Фінальна позиція (після посадки)
   const finalPos = { ...targetPos }

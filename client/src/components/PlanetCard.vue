@@ -133,9 +133,7 @@
                     'incorrect': isAnswered && selectedAnswer === key && !isCorrect,
                     'disabled': isAnswered && (attemptsLeft === 0 || isCorrect)
                   }"
-                  @mouseenter="handleOptionHover"
-                  @mouseleave="() => { hoveredButtonId = null; }"
-                  @click="() => { playClick(); selectAnswer(key); }"
+                  @click.stop="handleAnswerClick(key, $event)"
                   :disabled="isAnswered && (attemptsLeft === 0 || isCorrect)"
                 >
                   <span class="option-label">{{ key.toUpperCase() }}.</span>
@@ -170,7 +168,7 @@
               </div>
               
               <!-- Таймер -->
-              <div v-if="timeRemaining > 0" class="quiz-timer">
+              <div v-if="timeRemaining > 0 && !isAnswered" class="quiz-timer">
                 <div class="timer-bar" :style="{ width: Math.max(0, Math.min(100, (timeRemaining / 30) * 100)) + '%' }"></div>
                 <span class="timer-text">{{ Math.ceil(timeRemaining) }}с</span>
               </div>
@@ -226,11 +224,14 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch, nextTick, inject } from 'vue'
 import { getCachedStars, getCachedAnimatedStars } from '../utils/starBackground.js'
 import { getRandomQuestionFromQuiz, validateQuizResponse, updateUserProgress, checkUserForBadge } from '../utils/logic.js'
 import { galaxyConfig } from '../utils/data.js'
 import { playHover, playClick } from '../utils/sounds'
+
+// Отримуємо посилання на Stella через inject
+const stella = inject('stella', null)
 
 const props = defineProps({
   planetData: {
@@ -365,6 +366,18 @@ const shouldShowQuizSection = computed(() => {
   return isQuizLoading.value || (props.planetData.quiz && props.planetData.quiz.length > 0)
 })
 
+// Watch для виклику діалогу Стели, коли питання завантажується
+let quizIntroShown = false
+watch(() => props.planetData.quiz, (newQuiz) => {
+  if (newQuiz && newQuiz.length > 0 && !isQuizLoading.value && !quizIntroShown && stella?.value) {
+    quizIntroShown = true
+    // Викликаємо діалог про вікторину з невеликою затримкою
+    setTimeout(() => {
+      stella.value.speak('quizIntro')
+    }, 1000)
+  }
+}, { immediate: true })
+
 const currentQuestion = computed(() => {
   if (props.planetData.quiz && props.planetData.quiz.length > 0) {
     const question = getRandomQuestionFromQuiz(props.planetData.quiz)
@@ -411,18 +424,50 @@ function handleOptionHover(event) {
   }
 }
 
+// Прапорець для запобігання подвійних кліків
+let isProcessingClick = false
+
+// Обробник кліку на варіант відповіді
+function handleAnswerClick(answerKey, event) {
+  // Запобігаємо подвійним клікам
+  if (isProcessingClick) {
+    return
+  }
+  
+  // Перевіряємо, чи кнопка вже відключена
+  if (isAnswered.value && (attemptsLeft.value === 0 || isCorrect.value)) {
+    return
+  }
+  
+  // Встановлюємо прапорець обробки
+  isProcessingClick = true
+  
+  // Запобігаємо поширенню події на overlay
+  if (event) {
+    event.stopPropagation()
+    event.stopImmediatePropagation()
+  }
+  
+  // Викликаємо selectAnswer одразу (синхронно)
+  selectAnswer(answerKey)
+  
+  // Відтворюємо звук після обробки (не блокує)
+  playClick().catch(() => {})
+  
+  // Скидаємо прапорець після невеликої затримки, щоб уникнути подвійних кліків
+  setTimeout(() => {
+    isProcessingClick = false
+  }, 300)
+}
+
 function selectAnswer(answerKey) {
-  // Перевіряємо, чи є питання
+  // Швидкі перевірки
   if (!currentQuestion.value) {
     return
   }
-  
-  // Не дозволяємо вибирати відповідь, якщо вже відповіли і спроби закінчилися
   if (isAnswered.value && attemptsLeft.value === 0) {
     return
   }
-  
-  // Не дозволяємо вибирати відповідь, якщо вже відповіли правильно
   if (isAnswered.value && isCorrect.value) {
     return
   }
@@ -438,6 +483,29 @@ function selectAnswer(answerKey) {
   if (correct) {
     // Правильна відповідь
     stopTimer()
+    
+    // Визначаємо, яка це спроба (2 - attemptsLeft = спроба номер)
+    const attemptNumber = 2 - attemptsLeft.value
+    
+    if (attemptNumber === 1) {
+      // Правильна відповідь з першої спроби
+      if (stella?.value) {
+        setTimeout(() => {
+          stella.value.speak('correctFirst')
+          setTimeout(() => {
+            stella.value.speak('correctFirstContinue')
+          }, 4000)
+        }, 500)
+      }
+    } else {
+      // Правильна відповідь з другої спроби
+      if (stella?.value) {
+        setTimeout(() => {
+          stella.value.speak('correctSecond')
+        }, 500)
+      }
+    }
+    
     if (props.planetId) {
       updateUserProgress(props.planetId)
       if (checkUserForBadge()) {
@@ -453,11 +521,36 @@ function selectAnswer(answerKey) {
     if (attemptsLeft.value === 0) {
       // Спроби закінчилися
       stopTimer()
+      
+      // Неправильна відповідь з другої спроби
+      if (stella?.value) {
+        setTimeout(() => {
+          stella.value.speak('incorrectSecond')
+          setTimeout(() => {
+            stella.value.speak('incorrectSecondContinue')
+          }, 4000)
+        }, 500)
+      }
     } else {
-      // Є ще спроби - дозволяємо спробувати ще раз через 2 секунди
+      // Є ще спроби - зупиняємо таймер під час очікування
+      stopTimer()
+      
+      // Неправильна відповідь з першої спроби
+      if (stella?.value) {
+        setTimeout(() => {
+          stella.value.speak('incorrect')
+        }, 500)
+      }
+      
+      // Після 2 секунд скидаємо стан і перезапускаємо таймер
       setTimeout(() => {
         isAnswered.value = false
         selectedAnswer.value = null
+        
+        // Перезапускаємо таймер тільки якщо секція видима
+        if (isQuizSectionVisible.value && props.isVisible) {
+          startTimer()
+        }
       }, 2000)
     }
   }
@@ -492,17 +585,26 @@ function startTimer() {
       return
     }
     
-    // Зменшуємо час (навіть якщо відповідь дана, але є спроби)
-    timeRemaining.value = Math.max(0, timeRemaining.value - 0.1)
-    
-    if (timeRemaining.value <= 0) {
-      // Час вийшов - скидаємо відповіді з анімацією
-      if (!isAnswered.value || (isAnswered.value && attemptsLeft.value > 0)) {
-        resetQuizWithAnimation()
-      }
-      stopTimer()
+    // Зупиняємо таймер якщо є неправильна відповідь і ще є спроби (під час очікування)
+    if (isAnswered.value && !isCorrect.value && attemptsLeft.value > 0) {
+      // Таймер вже зупинений в selectAnswer, але перевіряємо тут для безпеки
+      return
     }
-  }, 100) // Оновлюємо кожні 100мс для плавності
+    
+    // Зменшуємо час (тільки якщо немає активної відповіді)
+    if (!isAnswered.value) {
+      const newTime = Math.max(0, timeRemaining.value - 1)
+      timeRemaining.value = newTime
+      
+      if (newTime <= 0) {
+        // Час вийшов - скидаємо відповіді з анімацією
+        if (!isAnswered.value) {
+          resetQuizWithAnimation()
+        }
+        stopTimer()
+      }
+    }
+  }, 1000) // Оновлюємо кожну секунду для меншої навантаження
 }
 
 function stopTimer() {
@@ -524,6 +626,8 @@ function resetQuizState() {
   attemptsLeft.value = 2
   timeRemaining.value = 30
   stopTimer()
+  quizIntroShown = false // Скидаємо прапорець для нового питання
+  isProcessingClick = false // Скидаємо прапорець обробки кліків
 }
 
 // Генерація нового питання через API
@@ -1377,12 +1481,12 @@ onUnmounted(() => {
   /* Запобігаємо дриганню */
   backface-visibility: hidden;
   -webkit-font-smoothing: antialiased;
-  /* Фіксуємо всі можливі зміни */
-  will-change: auto;
   /* Оптимізація рендерингу */
-  contain: layout style paint;
-  /* Запобігаємо перерахуванню layout */
   transform: translateZ(0);
+  /* Забезпечуємо, що кнопка може отримувати кліки */
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 /* Використовуємо outline для hover, щоб не змінювати border */
