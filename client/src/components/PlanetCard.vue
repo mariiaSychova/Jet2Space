@@ -484,11 +484,9 @@ function selectAnswer(answerKey) {
     // Правильна відповідь
     stopTimer()
     
-    // Визначаємо, яка це спроба (2 - attemptsLeft = спроба номер)
-    const attemptNumber = 2 - attemptsLeft.value
+    const isFirstAttempt = attemptsLeft.value === 2
     
-    if (attemptNumber === 1) {
-      // Правильна відповідь з першої спроби
+    if (isFirstAttempt) {
       if (stella?.value) {
         setTimeout(() => {
           stella.value.speak('correctFirst')

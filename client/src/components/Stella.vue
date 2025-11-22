@@ -1,31 +1,46 @@
 <template>
-  <div class="stella-container">
-    <!-- Мовна бульбашка -->
-    <transition name="bubble">
-      <div v-if="showBubble && displayedMessage" class="speech-bubble">
-        <p class="message-text">
-          {{ displayedMessage }}
-          <span v-if="isSpeaking" class="cursor"></span>
-        </p>
-      </div>
+  <div>
+    <!-- Затемнення фону (overlay) -->
+    <transition name="overlay-fade">
+      <div v-if="isSpotlightMode" class="spotlight-overlay" @click="skipIntro"></div>
     </transition>
 
-    <!-- Персонаж Стелла -->
-    <div class="stella-character" @click="repeatMessage">
-      <img 
-        :src="currentImage" 
-        alt="Стелла"
-        class="stella-image"
-        :class="{ 'speaking': isSpeaking }"
-        fetchpriority="high"
-        loading="eager"
-        decoding="async"
-        width="200"
-        height="200"
-      />
-      
-      <!-- Ефект світіння при розмові -->
-      <div v-if="isSpeaking" class="glow-effect"></div>
+    <!-- Контейнер Стелли -->
+    <div 
+      class="stella-container" 
+      :class="{ 
+        'spotlight-mode': isSpotlightMode,
+        'compact-mode': !isSpotlightMode 
+      }"
+    >
+
+      <!-- Мовна бульбашка -->
+      <transition name="bubble">
+        <div v-if="showBubble && displayedMessage" class="speech-bubble">
+          <p class="message-text">
+            {{ displayedMessage }}
+            <span v-if="isSpeaking" class="cursor"></span>
+          </p>
+        </div>
+      </transition>
+
+      <!-- Персонаж Стелла -->
+      <div class="stella-character" @click="repeatMessage">
+        <img 
+          :src="currentImage" 
+          alt="Стелла"
+          class="stella-image"
+          :class="{ 'speaking': isSpeaking }"
+          fetchpriority="high"
+          loading="eager"
+          decoding="async"
+          width="200"
+          height="200"
+        />
+        
+        <!-- Ефект світіння при розмові -->
+        <div v-if="isSpeaking" class="glow-effect"></div>
+      </div>
     </div>
   </div>
 </template>
@@ -39,15 +54,22 @@ export default {
   data() {
     return {
       currentMessage: '',
+      currentDialogueKey: null,
       displayedMessage: '',
       isSpeaking: false,
       mouthOpen: false,
       showBubble: false,
       typingInterval: null,
       mouthInterval: null,
+      isSpotlightMode: false,
+      isFullyFinished: true,
+      messageQueue: [],
+      
+      // Діалоги, що показуються в spotlight режимі
+      spotlightDialogues: ['welcome', 'quizIntro', 'correctFirst', 'correctFirstContinue', 'correctSecond', 'incorrectSecondContinue', 'continueJourney', 'completion'],
       
       dialogues: {
-        welcome: 'Вітаю з початком твоєї космічної експедиції, досліднику! Я – Стелла, твій гід. Разом ми дослідимо Сонячну систему. Обери свій перший космічний об\'єкт і розпочнемо подорож!',
+        welcome: 'Вітаю з початком твоєї космічної експедиції, досліднику! Я – Стелла, твій гід. Разом ми дослідімо Сонячну систему. Обери свій перший космічний об\'єкт і розпочнемо подорож!',
         traveling: 'Тримайся міцніше! Ми летимо!',
         quizIntro: 'Перевіримо твої знання! Спробуй відповісти на запитання.',
         correctFirst: 'Відмінно! Твої знання сяють яскравіше за зорі!',
@@ -73,18 +95,34 @@ export default {
         console.warn('Діалог не знайдено:', dialogueKey)
         return
       }
+
+      if (!this.isFullyFinished) {
+        this.messageQueue.push({ dialogueKey, customMessage })
+        return
+      }
+      
+      this.currentDialogueKey = dialogueKey
       
       this.clearIntervals()
+      this.stopMouthAnimation()
+      
+      const needsSpotlight = this.spotlightDialogues.includes(dialogueKey)
+      
+      if (needsSpotlight) {
+        this.isSpotlightMode = true
+      }
+      
+      this.isFullyFinished = false
       this.currentMessage = message
       this.displayedMessage = ''
       this.showBubble = true
       this.isSpeaking = true
       
       this.startMouthAnimation()
-      this.typeMessage(message)
+      this.typeMessage(message, dialogueKey)
     },
     
-    typeMessage(message) {
+    typeMessage(message, dialogueKey) {
       let index = 0
       const typingSpeed = 50
       
@@ -98,10 +136,50 @@ export default {
             this.stopMouthAnimation()
             setTimeout(() => {
               this.showBubble = false
+              
+              if (this.spotlightDialogues.includes(dialogueKey)) {
+                setTimeout(() => {
+                  this.exitSpotlightMode()
+                  this.isFullyFinished = true
+                  this.processQueue()
+                }, 800)
+              } else {
+                this.isFullyFinished = true
+                this.processQueue()
+              }
             }, 2000)
           }, 2000)
         }
       }, typingSpeed)
+    },
+    
+    exitSpotlightMode() {
+      this.isSpotlightMode = false
+    },
+    
+    processQueue() {
+      if (this.messageQueue.length > 0) {
+        const next = this.messageQueue.shift()
+        setTimeout(() => {
+          this.speak(next.dialogueKey, next.customMessage)
+        }, 300)
+      }
+    },
+    
+    skipIntro() {
+      if (this.isSpotlightMode && this.isSpeaking) {
+        this.clearIntervals()
+        this.stopMouthAnimation()
+        this.displayedMessage = this.currentMessage
+        setTimeout(() => {
+          this.showBubble = false
+          setTimeout(() => {
+            this.exitSpotlightMode()
+            this.isFullyFinished = true
+            this.processQueue()
+          }, 500)
+        }, 1000)
+      }
     },
     
     startMouthAnimation() {
@@ -128,11 +206,12 @@ export default {
         clearInterval(this.mouthInterval)
         this.mouthInterval = null
       }
+      this.isSpeaking = false
     },
     
     repeatMessage() {
-      if (this.currentMessage && !this.isSpeaking) {
-        this.speak(null, this.currentMessage)
+      if (this.currentMessage && !this.isSpeaking && this.currentDialogueKey) {
+        this.speak(this.currentDialogueKey)
       }
     },
     
@@ -141,6 +220,7 @@ export default {
       this.clearIntervals()
       this.stopMouthAnimation()
     },
+    
     speakWithAnswer(dialogueKey, correctAnswer) {
       const messages = {
         incorrectSecond: `Правильна відповідь - ${correctAnswer}. Не хвилюйся, кожна помилка - це теж крок уперед!`
@@ -149,7 +229,6 @@ export default {
     }
   },
   mounted() {
-    // Preload both images immediately when component mounts
     const preloadImage = (src) => {
       const link = document.createElement('link')
       link.rel = 'preload'
@@ -158,12 +237,10 @@ export default {
       link.fetchPriority = 'high'
       document.head.appendChild(link)
       
-      // Also create Image object to force browser to fetch
       const img = new Image()
       img.src = src
     }
     
-    // Preload both images
     preloadImage(stellaClosed)
     preloadImage(stellaOpen)
   },
@@ -174,12 +251,104 @@ export default {
 </script>
 
 <style scoped>
+/* Затемнення фону */
+.spotlight-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 9998;
+  cursor: pointer;
+}
+
+.overlay-fade-enter-active,
+.overlay-fade-leave-active {
+  transition: all 0.8s ease;
+}
+
+.overlay-fade-enter-from {
+  opacity: 0;
+  backdrop-filter: blur(0px);
+}
+
+.overlay-fade-leave-to {
+  opacity: 0;
+  backdrop-filter: blur(0px);
+}
+
+/* Контейнер Стелли */
 .stella-container {
   position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  transition: all 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Кнопка закриття - фіксована у правому верхньому куті */
+.close-button-fixed {
+  position: fixed;
+  top: 30px;
+  right: 30px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  border: 2px solid rgba(147, 197, 253, 0.5);
+  color: #1a1a2e;
+  cursor: pointer;
+  pointer-events: all;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  z-index: 10000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.close-button-fixed svg {
+  width: 22px;
+  height: 22px;
+}
+
+.close-button-fixed:hover {
+  background: rgba(255, 255, 255, 1);
+  transform: scale(1.1) rotate(90deg);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.close-button-fixed:active {
+  transform: scale(0.95) rotate(90deg);
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Компактний режим - внизу зліва */
+.stella-container.compact-mode {
   bottom: 20px;
   left: 40px;
-  z-index: 1000;
-  pointer-events: none;
+  top: auto;
+  transform: translate(0, 0) scale(1);
+}
+
+/* Spotlight режим - по центру екрану */
+.stella-container.spotlight-mode {
+  top: 65%;
+  left: 50%;
+  bottom: auto;
+  transform: translate(-50%, -50%) scale(2);
+  max-width: 90vw;
+  max-height: 85vh;
 }
 
 .stella-character {
@@ -188,6 +357,7 @@ export default {
   position: relative;
   cursor: pointer;
   pointer-events: all;
+  z-index: 1;
 }
 
 .stella-image {
@@ -196,6 +366,10 @@ export default {
   object-fit: contain;
   filter: drop-shadow(0 4px 20px rgba(100, 200, 255, 0.3));
   transition: transform 0.2s ease;
+}
+
+.spotlight-mode .stella-image {
+  filter: drop-shadow(0 8px 40px rgba(100, 200, 255, 0.6));
 }
 
 .stella-image:hover {
@@ -215,6 +389,10 @@ export default {
   pointer-events: none;
 }
 
+.spotlight-mode .glow-effect {
+  background: radial-gradient(circle, rgba(147, 197, 253, 0.6) 0%, transparent 70%);
+}
+
 .speech-bubble {
   position: absolute;
   bottom: 220px;
@@ -228,6 +406,20 @@ export default {
   backdrop-filter: blur(10px);
   border: 2px solid rgba(147, 197, 253, 0.3);
   pointer-events: all;
+  box-sizing: border-box;
+  z-index: 2;
+}
+
+/* В spotlight режимі бульбашка більша */
+.spotlight-mode .speech-bubble {
+  max-width: min(480px, 85vw);
+  min-width: min(380px, 75vw);
+  padding: 14px 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 230px;
+  box-sizing: border-box;
+  font-size: 14px;
 }
 
 .speech-bubble::after {
@@ -242,6 +434,11 @@ export default {
   border-top: 16px solid rgba(255, 255, 255, 0.98);
 }
 
+.spotlight-mode .speech-bubble::after {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
 .message-text {
   margin: 0;
   color: #1a1a2e;
@@ -249,6 +446,11 @@ export default {
   line-height: 1.6;
   font-weight: 500;
   font-family: 'Nunito', sans-serif;
+}
+
+.spotlight-mode .message-text {
+  font-size: 14px;
+  line-height: 1.4;
 }
 
 .cursor {
@@ -317,7 +519,7 @@ export default {
 }
 
 @media (max-width: 768px) {
-  .stella-container {
+  .stella-container.compact-mode {
     bottom: 10px;
     left: 10px;
   }
@@ -327,6 +529,25 @@ export default {
     height: 130px;
   }
   
+  .stella-container.spotlight-mode {
+    transform: translate(-50%, -50%) scale(1.5);
+    max-width: 95vw;
+    max-height: 80vh;
+    top: 60%;
+  }
+  
+  .close-button-fixed {
+    top: 20px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+  }
+  
+  .close-button-fixed svg {
+    width: 20px;
+    height: 20px;
+  }
+  
   .speech-bubble {
     max-width: 300px;
     min-width: 220px;
@@ -334,6 +555,15 @@ export default {
     left: -10px;
     padding: 16px 20px;
     font-size: 14px;
+    box-sizing: border-box;
+  }
+  
+  .spotlight-mode .speech-bubble {
+    max-width: min(320px, 90vw);
+    min-width: min(250px, 85vw);
+    font-size: 14px;
+    padding: 16px 20px;
+    bottom: 150px;
   }
   
   .speech-bubble::after {
