@@ -149,7 +149,8 @@ const scaleFactor = computed(() => {
   return Math.max(calculatedScale, 0.2) // Мінімум 20% масштаб
 })
 
-// Отримуємо позицію центру планети відносно контейнера (враховуючи scale)
+// Отримуємо позицію центру планети відносно контейнера в логічних координатах
+// Використовуємо offsetLeft/offsetTop, які не враховують CSS transform
 function getPlanetPosition(planetId) {
   if (!containerRef.value) return null
   
@@ -158,38 +159,62 @@ function getPlanetPosition(planetId) {
   
   // Знаходимо planet-wrapper - це фактичний елемент планети
   const planetWrapper = planetContainer.querySelector('.planet-wrapper')
-  if (!planetWrapper) {
-    // Якщо wrapper не знайдено, використовуємо сам container
-    const containerRect = containerRef.value.getBoundingClientRect()
-    const rect = planetContainer.getBoundingClientRect()
-    return {
-      x: rect.left + rect.width / 2 - containerRect.left,
-      y: rect.top + rect.height / 2 - containerRect.top
-    }
+  if (!planetWrapper) return null
+  
+  // Використовуємо offsetLeft/offsetTop для отримання координат без урахування CSS transform
+  // Це дає нам логічні координати, які не залежать від масштабу
+  let x = 0
+  let y = 0
+  let element = planetContainer
+  
+  // Накопичуємо offset до контейнера
+  while (element && element !== containerRef.value) {
+    x += element.offsetLeft
+    y += element.offsetTop
+    element = element.offsetParent
   }
   
-  // Отримуємо позиції відносно viewport
-  const wrapperRect = planetWrapper.getBoundingClientRect()
-  const containerRect = containerRef.value.getBoundingClientRect()
+  // Додаємо позицію wrapper всередині container
+  // wrapper зазвичай центрований всередині container через flexbox
+  x += planetContainer.offsetWidth / 2
+  y += planetContainer.offsetHeight / 2
   
-  // Обчислюємо центр wrapper відносно контейнера
-  // Оскільки обидва елементи всередині масштабованого контейнера,
-  // координати з getBoundingClientRect() вже враховують масштаб
-  const centerX = wrapperRect.left + wrapperRect.width / 2 - containerRect.left
-  const centerY = wrapperRect.top + wrapperRect.height / 2 - containerRect.top
+  return { x, y }
+}
+
+// Обчислюємо відстань посадки на основі розміру планети
+function getLandingDistance(planetId) {
+  const planet = planets.find(p => p.id === planetId)
+  if (!planet) return 50 // Значення за замовчуванням
   
-  return { x: centerX, y: centerY }
+  const baseSize = planet.size || 200
+  const visualScale = planet.visualScale || 1
+  // Для Сатурна враховуємо множник для кілець
+  const saturnMultiplier = planet.id === 'saturn' ? 1.15 : 1
+  // Реальний розмір планети (радіус)
+  const planetRadius = (baseSize * Math.max(1, visualScale) * saturnMultiplier) / 2
+  
+  // Відстань посадки = радіус планети + невеликий відступ
+  // Мінімальна відстань 15px, масштабується пропорційно розміру
+  const baseOffset = 15 // Базовий відступ від поверхні
+  const scaledOffset = planetRadius * 0.1 // 10% від радіусу як додатковий відступ
+  const landingDistance = planetRadius + baseOffset + scaledOffset
+  
+  return landingDistance
 }
 
 // Позиція "якоря" ракети над планетою в логічних (немасштабованих) координатах
+// getPlanetPosition вже повертає логічні координати, тому не ділимо на scaleFactor
 function getRocketAnchorPosition(planetId) {
   const planetPos = getPlanetPosition(planetId)
   if (!planetPos) return null
 
-  const safeScale = scaleFactor.value || 1
+  const landingDistance = getLandingDistance(planetId)
+  
+  // planetPos вже в логічних координатах, просто віднімаємо відстань посадки
   return {
-    x: planetPos.x / safeScale,
-    y: (planetPos.y - 80) / safeScale // 80px вище центру планети
+    x: planetPos.x,
+    y: planetPos.y - landingDistance // Відстань посадки в логічних координатах
   }
 }
 
@@ -368,7 +393,9 @@ function startRocketFlight(targetPlanetId) {
   const finalPos = { ...targetPos }
 
   // Позиція, де ракета закінчує основний політ і "зависає" перед посадкою
-  const hoverOffset = 40
+  // Відстань зависання також масштабується з розміром планети
+  const landingDistance = getLandingDistance(targetPlanetId)
+  const hoverOffset = landingDistance * 0.2 // 20% від відстані посадки для зависання
   const flightTarget = {
     x: targetPos.x,
     y: targetPos.y - hoverOffset
@@ -556,7 +583,7 @@ function startRocketLanding(targetPlanetId, hoverPos, finalPos) {
     // щоб глядач встиг «побачити посадку».
     setTimeout(() => {
       openPlanetCard(targetPlanetId)
-    }, 300)
+    }, 800)
   }
 
   rocketAnimationFrameId = requestAnimationFrame(animateLanding)
@@ -600,6 +627,17 @@ watch(starsReady, (ready) => {
     }, 200)
   }
 }, { immediate: true })
+
+// Оновлюємо позицію ракети при зміні масштабу
+watch(scaleFactor, () => {
+  if (currentRocketPlanetId.value && !isRocketFlying.value) {
+    const pos = getRocketAnchorPosition(currentRocketPlanetId.value)
+    if (pos) {
+      rocketX.value = pos.x
+      rocketY.value = pos.y
+    }
+  }
+})
 
 // Fallback - якщо зірки не готові протягом 8 секунд, показуємо сторінку все одно
 onMounted(() => {

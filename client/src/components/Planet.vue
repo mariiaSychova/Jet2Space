@@ -540,7 +540,7 @@ watch(() => props.isCardOpen, (isOpen) => {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%) translateZ(0);
+  transform: translate(-50%, -50%) translateZ(0) scale(1.15);
   border-radius: 50%;
   object-fit: cover;
   object-position: center;
@@ -568,7 +568,7 @@ watch(() => props.isCardOpen, (isOpen) => {
 }
 
 .planet-wrapper:hover .planet-video {
-  transform: translate(-50%, -50%) scale(1.1);
+  transform: translate(-50%, -50%) scale(1.215);
   transform-origin: center center;
 }
 
