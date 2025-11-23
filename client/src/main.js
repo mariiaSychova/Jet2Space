@@ -4,9 +4,10 @@ import router from './router'
 
 import './assets/css/reset.css' 
 
-// Preload critical Stella images for LCP optimization
-const preloadStellaImages = () => {
-  // These will be resolved by Vite at build time
+// Preload critical Stella images for LCP optimization - execute immediately
+(function() {
+  'use strict'
+  // Preload before Vue app initialization
   const stellaClosed = new URL('./assets/images/Stella_closed.svg', import.meta.url).href
   const stellaOpen = new URL('./assets/images/Stella_open.svg', import.meta.url).href
   
@@ -16,19 +17,19 @@ const preloadStellaImages = () => {
     link.as = 'image'
     link.href = src
     link.fetchPriority = 'high'
+    link.crossOrigin = 'anonymous'
     document.head.appendChild(link)
     
-    // Also create Image object to force browser to fetch
+    // Force browser to fetch immediately
     const img = new Image()
     img.src = src
+    img.fetchPriority = 'high'
   }
   
+  // Preload both images immediately
   preloadImage(stellaClosed)
   preloadImage(stellaOpen)
-}
-
-// Preload images immediately
-preloadStellaImages()
+})()
 
 const app = createApp(App)
 app.use(router)

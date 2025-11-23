@@ -112,22 +112,29 @@ async function startAudio() {
 }
 
 async function toggleMusic() {
-  playClick()
-  
-  // Отримуємо актуальний стан
+  // Оновлюємо стан UI одразу для швидкої відповіді
   const currentState = getBackgroundState()
+  isMusicPlaying.value = !currentState
   
-  if (currentState) {
-    // Музика грає - вимикаємо
-    stopBackground()
-    // Оновлюємо стан одразу після зупинки
-    isMusicPlaying.value = false
-  } else {
-    // Музика не грає - вмикаємо
-    await startAudio()
-    // Стан оновлюється в startAudio, але перевіримо ще раз
-    isMusicPlaying.value = getBackgroundState()
-  }
+  // Відтворюємо звук кліку асинхронно, щоб не блокувати UI
+  playClick().catch(() => {})
+  
+  // Виконуємо операції з аудіо в наступному кадрі, щоб не блокувати UI
+  requestAnimationFrame(async () => {
+    if (currentState) {
+      // Музика грає - вимикаємо
+      stopBackground()
+    } else {
+      // Музика не грає - вмикаємо
+      try {
+        await startAudio()
+        isMusicPlaying.value = getBackgroundState()
+      } catch (error) {
+        console.error('Failed to start audio:', error)
+        isMusicPlaying.value = false
+      }
+    }
+  })
 }
 
 // Намагаємося запустити музику автоматично при завантаженні сторінки

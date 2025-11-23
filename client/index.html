@@ -8,7 +8,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <!-- Preload critical Stella images for LCP optimization -->
-    <!-- Note: Vite will handle the path resolution, but we preload in JS for better control -->
+    <link rel="preload" as="image" href="/src/assets/images/Stella_closed.svg" fetchpriority="high">
+    <link rel="preload" as="image" href="/src/assets/images/Stella_open.svg" fetchpriority="high">
     <title>client</title>
   </head>
   <body>

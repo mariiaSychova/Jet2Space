@@ -33,13 +33,13 @@
           :class="{ 'speaking': isSpeaking }"
           fetchpriority="high"
           loading="eager"
-          decoding="async"
+          decoding="sync"
           width="200"
           height="200"
         />
         
         <!-- Ефект світіння при розмові -->
-        <div v-if="isSpeaking" class="glow-effect"></div>
+        <div v-if="isSpeaking || showGlow" class="glow-effect"></div>
       </div>
     </div>
   </div>
@@ -59,6 +59,7 @@ export default {
       isSpeaking: false,
       mouthOpen: false,
       showBubble: false,
+      showGlow: false,
       typingInterval: null,
       mouthInterval: null,
       isSpotlightMode: false,
@@ -117,6 +118,7 @@ export default {
       this.displayedMessage = ''
       this.showBubble = true
       this.isSpeaking = true
+      this.showGlow = true
       
       this.startMouthAnimation()
       this.typeMessage(message, dialogueKey)
@@ -195,6 +197,7 @@ export default {
       }
       this.mouthOpen = false
       this.isSpeaking = false
+      // Світіння залишається після завершення мови
     },
     
     clearIntervals() {
