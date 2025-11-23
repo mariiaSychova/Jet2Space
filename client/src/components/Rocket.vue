@@ -124,6 +124,10 @@ const rocketStyle = computed(() => {
 }
 
 /* Плавне збільшення трясіння при злеті (проміжна анімація) */
+.rocket-taking-off .rocket {
+  animation: rocketScaleUp 0.4s ease-out forwards;
+}
+
 .rocket-taking-off .rocket-image {
   animation: rocketShakeLight 0.25s ease-in-out infinite;
 }
@@ -420,6 +424,25 @@ const rocketStyle = computed(() => {
   }
   50% {
     transform: translateX(0.3px) translateY(-1px) rotate(0.2deg);
+  }
+}
+
+/* Градієнтне збільшення розміру при злеті */
+@keyframes rocketScaleUp {
+  0% {
+    transform: scale(0.2);
+  }
+  25% {
+    transform: scale(0.4);
+  }
+  50% {
+    transform: scale(0.7);
+  }
+  75% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
   }
 }
 
