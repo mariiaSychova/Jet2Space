@@ -2,14 +2,21 @@
 import backgroundSound from '../assets/sounds/background.mp3'
 import clickSound from '../assets/sounds/click.mp3'
 import hoverSound from '../assets/sounds/hover.mp3'
+import rocketSound from '../assets/sounds/rocket.mp3'
 
 let audioCtx;
 let backgroundBuffer;
 let clickBuffer;
 let hoverBuffer;
+let rocketBuffer;
 let source;
 let gainNode;
 let isPlaying = false; 
+
+// Звуки ракети
+let rocketSource = null;
+let rocketGainNode = null;
+let isRocketPlaying = false;
 
 async function loadAudio(url) {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -183,93 +190,105 @@ export async function playHover() {
   }
 }
 
-// Звуки польоту ракети
-let rocketEngineSource = null;
-let rocketEngineGainNode = null;
-
-// Генеруємо звук двигуна ракети програмно (якщо немає файлу)
-function generateRocketEngineSound() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  
-  const oscillator1 = audioCtx.createOscillator();
-  const oscillator2 = audioCtx.createOscillator();
-  const gainNode1 = audioCtx.createGain();
-  const gainNode2 = audioCtx.createGain();
-  const masterGain = audioCtx.createGain();
-  
-  // Низький гул
-  oscillator1.type = 'sawtooth';
-  oscillator1.frequency.value = 80;
-  gainNode1.gain.value = 0.3;
-  
-  // Високий свист
-  oscillator2.type = 'square';
-  oscillator2.frequency.value = 200;
-  gainNode2.gain.value = 0.1;
-  
-  // Майстер-гейн
-  masterGain.gain.value = 0.15;
-  
-  oscillator1.connect(gainNode1);
-  oscillator2.connect(gainNode2);
-  gainNode1.connect(masterGain);
-  gainNode2.connect(masterGain);
-  masterGain.connect(audioCtx.destination);
-  
-  return { oscillator1, oscillator2, masterGain };
-}
+// ==================== ЗВУКИ РАКЕТИ ====================
 
 export async function playRocketEngine() {
   try {
+    // Якщо звук вже грає, не запускаємо повторно
+    if (isRocketPlaying) {
+      console.log('Rocket engine already playing');
+      return;
+    }
+
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') await audioCtx.resume();
     
-    // Зупиняємо попереднє відтворення
+    // Завантажуємо звук ракети, якщо ще не завантажено
+    if (!rocketBuffer) {
+      rocketBuffer = await loadAudio(rocketSound);
+      if (!rocketBuffer) {
+        console.error('Failed to load rocket sound');
+        return;
+      }
+    }
+
+    // Зупиняємо попереднє відтворення (на всяк випадок)
     stopRocketEngine();
+
+    // Створюємо новий source для відтворення
+    rocketSource = audioCtx.createBufferSource();
+    rocketSource.buffer = rocketBuffer;
+    rocketSource.loop = true; // Зациклюємо звук двигуна
+
+    // Створюємо gainNode для контролю гучності
+    rocketGainNode = audioCtx.createGain();
+    rocketGainNode.gain.value = 0.4; // Початкова гучність 40%
+
+    // Підключаємо source -> gain -> destination
+    rocketSource.connect(rocketGainNode).connect(audioCtx.destination);
     
-    const soundGen = generateRocketEngineSound();
-    soundGen.oscillator1.start(0);
-    soundGen.oscillator2.start(0);
-    
-    rocketEngineSource = soundGen.oscillator1;
-    rocketEngineGainNode = soundGen.masterGain;
-    
-    // Зберігаємо посилання на другий осцилятор для зупинки
-    soundGen.oscillator1._secondOscillator = soundGen.oscillator2;
+    // Запускаємо відтворення
+    rocketSource.start(0);
+    isRocketPlaying = true;
+
+    // Обробник завершення (на випадок, якщо звук не зациклений)
+    rocketSource.onended = () => {
+      isRocketPlaying = false;
+      rocketSource = null;
+    };
+
+    console.log('Rocket engine sound started');
   } catch (error) {
     console.error('Error playing rocket engine sound:', error);
+    isRocketPlaying = false;
+    rocketSource = null;
   }
 }
 
 export function stopRocketEngine() {
-  if (rocketEngineSource) {
+  isRocketPlaying = false;
+  
+  if (rocketSource) {
     try {
-      rocketEngineSource.stop();
-      if (rocketEngineSource._secondOscillator) {
-        rocketEngineSource._secondOscillator.stop();
-      }
+      rocketSource.onended = null;
+      rocketSource.stop();
+      rocketSource.disconnect();
     } catch (e) {
-      // Ігноруємо помилки
+      console.warn('Error stopping rocket engine:', e);
     }
-    rocketEngineSource = null;
+    rocketSource = null;
   }
-  if (rocketEngineGainNode) {
+  
+  if (rocketGainNode) {
     try {
-      rocketEngineGainNode.disconnect();
+      rocketGainNode.disconnect();
     } catch (e) {
       // Ігноруємо помилки
     }
-    rocketEngineGainNode = null;
+    rocketGainNode = null;
+  }
+
+  console.log('Rocket engine sound stopped');
+}
+
+// Функція для плавної зміни гучності двигуна (fade)
+export function fadeRocketEngine(targetVolume, duration = 1000) {
+  if (rocketGainNode && isRocketPlaying) {
+    try {
+      const currentTime = audioCtx.currentTime;
+      // Плавно змінюємо гучність до цільового значення
+      rocketGainNode.gain.linearRampToValueAtTime(
+        targetVolume * 0.4, // Множимо на базову гучність (0.4)
+        currentTime + duration / 1000
+      );
+      console.log(`Fading rocket engine to ${targetVolume * 100}% over ${duration}ms`);
+    } catch (e) {
+      console.warn('Error fading rocket engine:', e);
+    }
   }
 }
 
-// Функція для зменшення гучності двигуна під час приземлення
-export function fadeRocketEngine(volume) {
-  if (rocketEngineGainNode) {
-    try {
-      rocketEngineGainNode.gain.value = volume * 0.15;
-    } catch (e) {
-      // Ігноруємо помилки
-    }
-  }
+// Функція для перевірки, чи грає звук ракети
+export function isRocketEngineePlaying() {
+  return isRocketPlaying;
 }
