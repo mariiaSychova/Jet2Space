@@ -114,17 +114,14 @@ async function startAudio() {
 async function toggleMusic() {
   // Отримуємо поточний стан
   const currentState = getBackgroundState()
-  console.log('toggleMusic called, currentState:', currentState)
   
   // Відтворюємо звук кліку асинхронно, щоб не блокувати UI
   playClick().catch(() => {})
   
   if (currentState) {
     // Музика грає - вимикаємо синхронно для миттєвого вимкнення
-    console.log('Stopping background music...')
     stopBackground()
     isMusicPlaying.value = false
-    console.log('Background music stopped, isMusicPlaying:', isMusicPlaying.value, 'getBackgroundState():', getBackgroundState())
   } else {
     // Музика не грає - вмикаємо
     isMusicPlaying.value = true

@@ -137,8 +137,6 @@ export async function playBackground() {
 }
 
 export function stopBackground() {
-  console.log('stopBackground called, isPlaying:', isPlaying, 'source exists:', !!source, 'gainNode exists:', !!gainNode, 'audioCtx exists:', !!audioCtx, 'audioCtx state:', audioCtx?.state, 'active sources count:', allActiveSources.size);
-  
   // Встановлюємо isPlaying в false перед зупинкою, щоб уникнути гонок
   isPlaying = false;
   
@@ -155,12 +153,10 @@ export function stopBackground() {
       currentGainNode.gain.cancelScheduledValues(currentTime);
       // Миттєво встановлюємо гучність на 0
       currentGainNode.gain.setValueAtTime(0, currentTime);
-      console.log('GainNode muted to 0 (immediate)');
     } catch (e) {
       try {
         // Fallback: просто встановлюємо значення
         currentGainNode.gain.value = 0;
-        console.log('GainNode muted to 0 (fallback)');
       } catch (e2) {
         console.warn('Error muting gainNode:', e2);
       }
@@ -171,7 +167,6 @@ export function stopBackground() {
   if (currentGainNode) {
     try {
       currentGainNode.disconnect();
-      console.log('GainNode disconnected from destination');
     } catch (e) {
       console.warn('Error disconnecting gainNode:', e);
     }
@@ -187,7 +182,6 @@ export function stopBackground() {
         activeSource.stop();
       }
       activeSource.disconnect();
-      console.log('Active source stopped and disconnected');
     } catch (e) {
       console.warn('Error stopping active source:', e);
     }
@@ -205,12 +199,10 @@ export function stopBackground() {
       } else {
         currentSource.stop();
       }
-      console.log('Source stopped immediately');
     } catch (e) {
       // Якщо stop() не працює, спробуємо без параметрів
       try {
         currentSource.stop();
-        console.log('Source stopped (fallback)');
       } catch (e2) {
         console.warn('Error stopping background music source:', e2);
       }
@@ -219,7 +211,6 @@ export function stopBackground() {
     // Відключаємо source від всього
     try {
       currentSource.disconnect();
-      console.log('Source disconnected');
     } catch (e) {
       console.warn('Error disconnecting source:', e);
     }
@@ -232,18 +223,13 @@ export function stopBackground() {
   // Очищаємо gainNode
   gainNode = null;
   
-  console.log('stopBackground completed, isPlaying:', isPlaying, 'source cleared:', !source, 'gainNode cleared:', !gainNode, 'active sources cleared:', allActiveSources.size);
-  
   // Перевіряємо, чи дійсно все зупинилося
   // ВАЖЛИВО: Не призупиняємо AudioContext, щоб інші звуки (hover, click) могли працювати
   if (currentAudioCtx) {
-    console.log('AudioContext state after stop:', currentAudioCtx.state);
     // Переконаємося, що AudioContext залишається активним для інших звуків
     if (currentAudioCtx.state === 'suspended') {
       try {
-        currentAudioCtx.resume().then(() => {
-          console.log('AudioContext resumed after stopBackground');
-        }).catch(err => {
+        currentAudioCtx.resume().catch(err => {
           console.warn('Failed to resume AudioContext after stopBackground:', err);
         });
       } catch (e) {
@@ -282,9 +268,8 @@ export async function playClick() {
     gainNode.gain.value = 0.6;
     clickSource.connect(gainNode).connect(audioCtx.destination);
     clickSource.start(0);
-    console.log('Click sound played, audioCtx state:', audioCtx.state);
   } catch (error) {
-    console.error('Error playing click sound:', error, 'audioCtx state:', audioCtx?.state);
+    console.error('Error playing click sound:', error);
   }
 }
 
@@ -313,9 +298,8 @@ export async function playHover() {
     gainNode.gain.value = 0.25;
     hoverSource.connect(gainNode).connect(audioCtx.destination);
     hoverSource.start(0);
-    console.log('Hover sound played, audioCtx state:', audioCtx.state);
   } catch (error) {
-    console.error('Error playing hover sound:', error, 'audioCtx state:', audioCtx?.state);
+    console.error('Error playing hover sound:', error);
   }
 }
 
@@ -325,7 +309,6 @@ export async function playRocketEngine() {
   try {
     // Якщо звук вже грає, не запускаємо повторно
     if (isRocketPlaying) {
-      console.log('Rocket engine already playing');
       return;
     }
 
@@ -366,7 +349,6 @@ export async function playRocketEngine() {
       rocketSource = null;
     };
 
-    console.log('Rocket engine sound started');
   } catch (error) {
     console.error('Error playing rocket engine sound:', error);
     isRocketPlaying = false;
@@ -397,7 +379,6 @@ export function stopRocketEngine() {
     rocketGainNode = null;
   }
 
-  console.log('Rocket engine sound stopped');
 }
 
 // Функція для плавної зміни гучності двигуна (fade)
@@ -410,7 +391,6 @@ export function fadeRocketEngine(targetVolume, duration = 1000) {
         targetVolume * 0.4, // Множимо на базову гучність (0.4)
         currentTime + duration / 1000
       );
-      console.log(`Fading rocket engine to ${targetVolume * 100}% over ${duration}ms`);
     } catch (e) {
       console.warn('Error fading rocket engine:', e);
     }
