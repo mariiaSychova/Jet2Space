@@ -11,24 +11,29 @@ import './assets/css/reset.css'
   const stellaClosed = new URL('./assets/images/Stella_closed.svg', import.meta.url).href
   const stellaOpen = new URL('./assets/images/Stella_open.svg', import.meta.url).href
   
-  const preloadImage = (src) => {
+  const preloadImage = (src, priority = 'high') => {
+    // Create preload link
     const link = document.createElement('link')
     link.rel = 'preload'
     link.as = 'image'
     link.href = src
-    link.fetchPriority = 'high'
-    link.crossOrigin = 'anonymous'
+    link.fetchPriority = priority
     document.head.appendChild(link)
     
-    // Force browser to fetch immediately
+    // Force browser to fetch immediately with high priority
     const img = new Image()
     img.src = src
-    img.fetchPriority = 'high'
+    img.fetchPriority = priority
+    // Preload the image into cache
+    img.onload = () => {
+      // Image is now cached
+    }
   }
   
-  // Preload both images immediately
-  preloadImage(stellaClosed)
-  preloadImage(stellaOpen)
+  // Preload closed image with highest priority (it's the initial state)
+  preloadImage(stellaClosed, 'high')
+  // Preload open image with lower priority (it's used later)
+  preloadImage(stellaOpen, 'auto')
 })()
 
 const app = createApp(App)

@@ -232,20 +232,15 @@ export default {
     }
   },
   mounted() {
-    const preloadImage = (src) => {
-      const link = document.createElement('link')
-      link.rel = 'preload'
-      link.as = 'image'
-      link.href = src
-      link.fetchPriority = 'high'
-      document.head.appendChild(link)
-      
+    // Images are already preloaded in main.js, but ensure they're in cache
+    // by creating Image objects to warm the cache
+    const warmCache = (src) => {
       const img = new Image()
       img.src = src
     }
     
-    preloadImage(stellaClosed)
-    preloadImage(stellaOpen)
+    warmCache(stellaClosed)
+    warmCache(stellaOpen)
   },
   beforeUnmount() {
     this.clearIntervals()
@@ -342,6 +337,9 @@ export default {
   left: 40px;
   top: auto;
   transform: translate(0, 0) scale(1);
+  /* Ensure visibility for LCP */
+  opacity: 1;
+  visibility: visible;
 }
 
 /* Spotlight режим - по центру екрану */
@@ -361,14 +359,47 @@ export default {
   cursor: pointer;
   pointer-events: all;
   z-index: 1;
+  /* Ensure container is always visible and doesn't cause layout shifts */
+  min-width: 200px;
+  min-height: 200px;
+  /* Remove any visible borders */
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  /* Prevent overflow that might create visible edges */
+  overflow: visible;
+  /* Remove box shadow that might look like a border */
+  box-shadow: none !important;
+  /* Ensure no visible frame around container */
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .stella-image {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  object-position: center;
   filter: drop-shadow(0 4px 20px rgba(100, 200, 255, 0.3));
   transition: transform 0.2s ease;
+  /* Optimize rendering */
+  will-change: transform;
+  transform: translateZ(0);
+  /* Remove any visible borders or outlines */
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  /* Ensure no box model issues */
+  box-sizing: border-box;
+  padding: 0 !important;
+  margin: 0 !important;
+  /* Prevent any default image styling */
+  vertical-align: top;
+  /* Remove any box shadow that might look like a border */
+  box-shadow: none !important;
+  /* Ensure no visible frame */
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .spotlight-mode .stella-image {
