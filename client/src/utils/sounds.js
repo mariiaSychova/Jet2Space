@@ -11,7 +11,9 @@ let hoverBuffer;
 let rocketBuffer;
 let source;
 let gainNode;
-let isPlaying = false; 
+let isPlaying = false;
+// Зберігаємо всі активні джерела для надійного вимкнення
+let allActiveSources = new Set(); 
 
 // Звуки ракети
 let rocketSource = null;
@@ -46,6 +48,7 @@ export async function playBackground() {
       try {
         source.stop();
         source.disconnect();
+        allActiveSources.delete(source);
       } catch (e) {
         // Ігноруємо помилки при зупинці (можливо, source вже зупинений)
       }
@@ -61,6 +64,17 @@ export async function playBackground() {
       }
       gainNode = null;
     }
+    
+    // Очищаємо всі активні джерела
+    allActiveSources.forEach((activeSource) => {
+      try {
+        activeSource.stop();
+        activeSource.disconnect();
+      } catch (e) {
+        // Ігноруємо помилки
+      }
+    });
+    allActiveSources.clear();
 
     if (!audioCtx) {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -88,6 +102,9 @@ export async function playBackground() {
     source = audioCtx.createBufferSource();
     source.buffer = backgroundBuffer;
     source.loop = true;
+    
+    // Додаємо source до множини активних джерел
+    allActiveSources.add(source);
 
     gainNode = audioCtx.createGain();
     gainNode.gain.value = 0.3;
@@ -101,6 +118,7 @@ export async function playBackground() {
 
       source.onended = () => {
         isPlaying = false;
+        allActiveSources.delete(source);
         source = null;
       };
     } catch (startError) {
@@ -119,28 +137,119 @@ export async function playBackground() {
 }
 
 export function stopBackground() {
+  console.log('stopBackground called, isPlaying:', isPlaying, 'source exists:', !!source, 'gainNode exists:', !!gainNode, 'audioCtx exists:', !!audioCtx, 'audioCtx state:', audioCtx?.state, 'active sources count:', allActiveSources.size);
+  
   // Встановлюємо isPlaying в false перед зупинкою, щоб уникнути гонок
   isPlaying = false;
   
-  if (source) {
+  // Зберігаємо посилання на локальні змінні
+  const currentSource = source;
+  const currentGainNode = gainNode;
+  const currentAudioCtx = audioCtx;
+  
+  // КРИТИЧНО: Спочатку приглушуємо gainNode до 0 - це миттєво зменшує гучність
+  if (currentGainNode && currentAudioCtx) {
+    try {
+      const currentTime = currentAudioCtx.currentTime;
+      // Скасовуємо всі заплановані зміни гучності
+      currentGainNode.gain.cancelScheduledValues(currentTime);
+      // Миттєво встановлюємо гучність на 0
+      currentGainNode.gain.setValueAtTime(0, currentTime);
+      console.log('GainNode muted to 0 (immediate)');
+    } catch (e) {
+      try {
+        // Fallback: просто встановлюємо значення
+        currentGainNode.gain.value = 0;
+        console.log('GainNode muted to 0 (fallback)');
+      } catch (e2) {
+        console.warn('Error muting gainNode:', e2);
+      }
+    }
+  }
+  
+  // Потім відключаємо gainNode від destination - це миттєво зупиняє звук
+  if (currentGainNode) {
+    try {
+      currentGainNode.disconnect();
+      console.log('GainNode disconnected from destination');
+    } catch (e) {
+      console.warn('Error disconnecting gainNode:', e);
+    }
+  }
+  
+  // Зупиняємо ВСІ активні джерела (на випадок, якщо є кілька)
+  allActiveSources.forEach((activeSource) => {
+    try {
+      activeSource.onended = null;
+      if (currentAudioCtx) {
+        activeSource.stop(currentAudioCtx.currentTime);
+      } else {
+        activeSource.stop();
+      }
+      activeSource.disconnect();
+      console.log('Active source stopped and disconnected');
+    } catch (e) {
+      console.warn('Error stopping active source:', e);
+    }
+  });
+  allActiveSources.clear();
+  
+  // Тепер зупиняємо основний source - це зупиняє генерацію звуку
+  if (currentSource) {
     try {
       // Видаляємо обробник onended перед зупинкою
-      source.onended = null;
-      source.stop();
-      source.disconnect();
+      currentSource.onended = null;
+      // Зупиняємо source миттєво
+      if (currentAudioCtx) {
+        currentSource.stop(currentAudioCtx.currentTime);
+      } else {
+        currentSource.stop();
+      }
+      console.log('Source stopped immediately');
     } catch (e) {
-      // Ігноруємо помилки при зупинці (можливо, source вже зупинений)
-      console.warn('Error stopping background music:', e);
+      // Якщо stop() не працює, спробуємо без параметрів
+      try {
+        currentSource.stop();
+        console.log('Source stopped (fallback)');
+      } catch (e2) {
+        console.warn('Error stopping background music source:', e2);
+      }
     }
-    source = null;
-  }
-  if (gainNode) {
+    
+    // Відключаємо source від всього
     try {
-      gainNode.disconnect();
+      currentSource.disconnect();
+      console.log('Source disconnected');
     } catch (e) {
-      // Ігноруємо помилки
+      console.warn('Error disconnecting source:', e);
     }
-    gainNode = null;
+    
+    source = null;
+  } else {
+    console.warn('No source to stop');
+  }
+  
+  // Очищаємо gainNode
+  gainNode = null;
+  
+  console.log('stopBackground completed, isPlaying:', isPlaying, 'source cleared:', !source, 'gainNode cleared:', !gainNode, 'active sources cleared:', allActiveSources.size);
+  
+  // Перевіряємо, чи дійсно все зупинилося
+  // ВАЖЛИВО: Не призупиняємо AudioContext, щоб інші звуки (hover, click) могли працювати
+  if (currentAudioCtx) {
+    console.log('AudioContext state after stop:', currentAudioCtx.state);
+    // Переконаємося, що AudioContext залишається активним для інших звуків
+    if (currentAudioCtx.state === 'suspended') {
+      try {
+        currentAudioCtx.resume().then(() => {
+          console.log('AudioContext resumed after stopBackground');
+        }).catch(err => {
+          console.warn('Failed to resume AudioContext after stopBackground:', err);
+        });
+      } catch (e) {
+        console.warn('Error resuming AudioContext:', e);
+      }
+    }
   }
 }
 
@@ -150,12 +259,21 @@ export function getBackgroundState() {
 
 export async function playClick() {
   try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === 'suspended') await audioCtx.resume();
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    
+    // Переконаємося, що AudioContext активний
+    if (audioCtx.state === 'suspended') {
+      await audioCtx.resume();
+    }
 
     if (!clickBuffer) {
       clickBuffer = await loadAudio(clickSound);
-      if (!clickBuffer) return;
+      if (!clickBuffer) {
+        console.warn('Click buffer not loaded');
+        return;
+      }
     }
 
     const clickSource = audioCtx.createBufferSource();
@@ -164,19 +282,29 @@ export async function playClick() {
     gainNode.gain.value = 0.6;
     clickSource.connect(gainNode).connect(audioCtx.destination);
     clickSource.start(0);
+    console.log('Click sound played, audioCtx state:', audioCtx.state);
   } catch (error) {
-    console.error('Error playing click sound:', error);
+    console.error('Error playing click sound:', error, 'audioCtx state:', audioCtx?.state);
   }
 }
 
 export async function playHover() {
   try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === 'suspended') await audioCtx.resume();
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    
+    // Переконаємося, що AudioContext активний
+    if (audioCtx.state === 'suspended') {
+      await audioCtx.resume();
+    }
 
     if (!hoverBuffer) {
       hoverBuffer = await loadAudio(hoverSound);
-      if (!hoverBuffer) return;
+      if (!hoverBuffer) {
+        console.warn('Hover buffer not loaded');
+        return;
+      }
     }
 
     const hoverSource = audioCtx.createBufferSource();
@@ -185,8 +313,9 @@ export async function playHover() {
     gainNode.gain.value = 0.25;
     hoverSource.connect(gainNode).connect(audioCtx.destination);
     hoverSource.start(0);
+    console.log('Hover sound played, audioCtx state:', audioCtx.state);
   } catch (error) {
-    console.error('Error playing hover sound:', error);
+    console.error('Error playing hover sound:', error, 'audioCtx state:', audioCtx?.state);
   }
 }
 

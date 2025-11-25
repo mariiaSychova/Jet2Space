@@ -112,29 +112,30 @@ async function startAudio() {
 }
 
 async function toggleMusic() {
-  // Оновлюємо стан UI одразу для швидкої відповіді
+  // Отримуємо поточний стан
   const currentState = getBackgroundState()
-  isMusicPlaying.value = !currentState
+  console.log('toggleMusic called, currentState:', currentState)
   
   // Відтворюємо звук кліку асинхронно, щоб не блокувати UI
   playClick().catch(() => {})
   
-  // Виконуємо операції з аудіо в наступному кадрі, щоб не блокувати UI
-  requestAnimationFrame(async () => {
-    if (currentState) {
-      // Музика грає - вимикаємо
-      stopBackground()
-    } else {
-      // Музика не грає - вмикаємо
-      try {
-        await startAudio()
-        isMusicPlaying.value = getBackgroundState()
-      } catch (error) {
-        console.error('Failed to start audio:', error)
-        isMusicPlaying.value = false
-      }
+  if (currentState) {
+    // Музика грає - вимикаємо синхронно для миттєвого вимкнення
+    console.log('Stopping background music...')
+    stopBackground()
+    isMusicPlaying.value = false
+    console.log('Background music stopped, isMusicPlaying:', isMusicPlaying.value, 'getBackgroundState():', getBackgroundState())
+  } else {
+    // Музика не грає - вмикаємо
+    isMusicPlaying.value = true
+    try {
+      await startAudio()
+      isMusicPlaying.value = getBackgroundState()
+    } catch (error) {
+      console.error('Failed to start audio:', error)
+      isMusicPlaying.value = false
     }
-  })
+  }
 }
 
 // Намагаємося запустити музику автоматично при завантаженні сторінки
@@ -150,7 +151,10 @@ onMounted(() => {
   
   // Якщо браузер заблокував автоплей, додаємо fallback - запуск після першої взаємодії
   const handleFirstInteraction = () => {
-    startAudio()
+    // Перевіряємо, чи музика не вимкнена користувачем
+    if (!getBackgroundState()) {
+      startAudio()
+    }
   }
   
   // Додаємо обробники для різних типів взаємодії як резервний варіант
